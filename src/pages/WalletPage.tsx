@@ -1,7 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowDownLeft, ArrowUpRight, Copy, Check, ExternalLink, AlertCircle } from 'lucide-react';
-import { mockWallets, mockTransactions } from '../mock/data';
+import { ArrowDownLeft, ArrowUpRight, Copy, Check, ExternalLink, AlertCircle, Loader2 } from 'lucide-react';
+import { useMarketData } from '../context/MarketContext';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
+
+const ASSET_COLORS: Record<string, string> = {
+  'BTC': '#F7931A',
+  'ETH': '#627EEA',
+  'USDT': '#26A17B',
+  'GOLD': '#C9A050',
+  'OIL': '#f97316'
+};
 
 
 function CopyButton({ text }: { text: string }) {
@@ -22,14 +32,115 @@ function CopyButton({ text }: { text: string }) {
 }
 
 export default function WalletPage() {
+  const { user } = useAuth();
+  const { prices, loading: marketLoading } = useMarketData();
   const [mode, setMode] = useState<'deposit' | 'withdraw'>('deposit');
-  const [selectedAsset, setSelectedAsset] = useState('BTC');
+  const [selectedAsset, setSelectedAsset] = useState('USDT');
   const [amount, setAmount] = useState('');
   const [address, setAddress] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  
+  const [wallets, setWallets] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success'|'error', text: string } | null>(null);
 
-  const wallet = mockWallets.find(w => w.asset === selectedAsset) ?? mockWallets[0];
-  const filtered = statusFilter === 'All' ? mockTransactions : mockTransactions.filter(tx => tx.status === statusFilter.toLowerCase());
+  useEffect(() => {
+    async function fetchWalletData() {
+      if (!user) return;
+      setIsLoading(true);
+      try {
+        const [wRes, txRes] = await Promise.all([
+          supabase.from('wallets').select('*').eq('user_id', user.id),
+          supabase.from('transactions').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+        ]);
+
+        if (wRes.data) setWallets(wRes.data);
+        if (txRes.data) setTransactions(txRes.data);
+      } catch (err) {
+        console.error('Error fetching wallet data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchWalletData();
+  }, [user]);
+
+  const activeWallet = wallets.find(w => w.asset === selectedAsset) || { balance: 0, address: '0x...' };
+  
+  const filteredTransactions = statusFilter === 'All' 
+    ? transactions 
+    : transactions.filter(tx => tx.status === statusFilter.toLowerCase());
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!user || !amount || Number(amount) <= 0) return;
+    
+    setIsSubmitting(true);
+    setMessage(null);
+
+    try {
+      if (mode === 'withdraw') {
+        if (Number(amount) > Number(activeWallet.balance)) {
+          throw new Error('Insufficient balance');
+        }
+        if (!address) throw new Error('Recipient address is required');
+
+        // 1. Create transaction record
+        const { error: txErr } = await supabase.from('transactions').insert({
+          user_id: user.id,
+          type: 'withdrawal',
+          asset: selectedAsset,
+          amount: Number(amount),
+          status: 'pending'
+        });
+        if (txErr) throw txErr;
+
+        // 2. Deduct from wallet
+        const { error: wErr } = await supabase.from('wallets')
+          .update({ balance: Number(activeWallet.balance) - Number(amount) })
+          .eq('user_id', user.id)
+          .eq('asset', selectedAsset);
+        if (wErr) throw wErr;
+
+        setMessage({ type: 'success', text: 'Withdrawal request submitted successfully' });
+      } else {
+        // Deposit - currently just logging intent for MVP
+        const { error: txErr } = await supabase.from('transactions').insert({
+          user_id: user.id,
+          type: 'deposit',
+          asset: selectedAsset,
+          amount: Number(amount),
+          status: 'pending'
+        });
+        if (txErr) throw txErr;
+        setMessage({ type: 'success', text: 'Deposit request created. Please send funds to the address shown.' });
+      }
+
+      // Refresh data
+      const [wRes, txRes] = await Promise.all([
+        supabase.from('wallets').select('*').eq('user_id', user.id),
+        supabase.from('transactions').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+      ]);
+      if (wRes.data) setWallets(wRes.data);
+      if (txRes.data) setTransactions(txRes.data);
+      setAmount('');
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Operation failed' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  if (isLoading || marketLoading) {
+    return (
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', flexDirection:'column', gap:'16px' }}>
+        <Loader2 size={40} color="#C9A050" className="spin" />
+        <div style={{ color:'rgba(255,255,255,0.4)', fontSize:'14px' }}>Loading wallet assets...</div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ paddingTop:'92px', minHeight:'100vh', padding:'92px 24px 60px' }}>
@@ -43,40 +154,45 @@ export default function WalletPage() {
 
         {/* Wallet balances */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(200px, 1fr))', gap:'14px', marginBottom:'32px' }}>
-          {mockWallets.map(w => (
-            <motion.div
-              key={w.asset}
-              whileHover={{ scale:1.02, y:-2 }}
-              onClick={() => setSelectedAsset(w.asset)}
-              style={{
-                background: selectedAsset === w.asset ? `${w.color}15` : '#111',
-                border:`1px solid ${selectedAsset === w.asset ? `${w.color}80` : 'rgba(255,255,255,0.07)'}`,
-                borderRadius:'14px', padding:'18px', cursor:'pointer',
-                boxShadow: selectedAsset === w.asset ? `0 0 20px ${w.color}25` : 'none',
-                transition:'all 0.2s',
-              }}
-            >
-              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px' }}>
-                <div style={{
-                  width:'34px', height:'34px', borderRadius:'8px',
-                  background:`${w.color}20`, display:'flex', alignItems:'center', justifyContent:'center',
-                  fontSize:'16px',
-                }}>
-                  {w.asset === 'BTC' ? '₿' : w.asset === 'ETH' ? '⟠' : w.asset === 'USDT' ? '₮' : '🥇'}
+          {wallets.map(w => {
+            const color = ASSET_COLORS[w.asset] || '#ccc';
+            const livePrice = prices[w.asset]?.price || (w.asset === 'USDT' ? 1 : 0);
+            const liveUsdValue = Number(w.balance) * livePrice;
+            return (
+              <motion.div
+                key={w.asset}
+                whileHover={{ scale:1.02, y:-2 }}
+                onClick={() => setSelectedAsset(w.asset)}
+                style={{
+                  background: selectedAsset === w.asset ? `${color}15` : '#111',
+                  border:`1px solid ${selectedAsset === w.asset ? `${color}80` : 'rgba(255,255,255,0.07)'}`,
+                  borderRadius:'14px', padding:'18px', cursor:'pointer',
+                  boxShadow: selectedAsset === w.asset ? `0 0 20px ${color}25` : 'none',
+                  transition:'all 0.2s',
+                }}
+              >
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px' }}>
+                  <div style={{
+                    width:'34px', height:'34px', borderRadius:'8px',
+                    background:`${color}20`, display:'flex', alignItems:'center', justifyContent:'center',
+                    fontSize:'16px',
+                  }}>
+                    {w.asset === 'BTC' ? '₿' : w.asset === 'ETH' ? '⟠' : w.asset === 'USDT' ? '₮' : w.asset === 'GOLD' ? '🥇' : '🛢️'}
+                  </div>
+                  <span style={{
+                    fontSize:'11px', padding:'2px 8px', borderRadius:'5px',
+                    background:`${color}20`, color:color, fontWeight:600,
+                  }}>{w.asset}</span>
                 </div>
-                <span style={{
-                  fontSize:'11px', padding:'2px 8px', borderRadius:'5px',
-                  background:`${w.color}20`, color:w.color, fontWeight:600,
-                }}>{w.asset}</span>
-              </div>
-              <div style={{ fontWeight:700, fontSize:'18px', color:w.color, marginBottom:'2px' }} className="stat-value">
-                {w.balance}
-              </div>
-              <div style={{ fontSize:'12px', color:'rgba(255,255,255,0.4)' }}>
-                ≈ ${w.usdValue.toLocaleString(undefined,{minimumFractionDigits:2})}
-              </div>
-            </motion.div>
-          ))}
+                <div style={{ fontWeight:700, fontSize:'18px', color:color, marginBottom:'2px' }} className="stat-value">
+                  {w.balance}
+                </div>
+                <div style={{ fontSize:'12px', color:'rgba(255,255,255,0.4)' }}>
+                  ≈ ${liveUsdValue.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2})}
+                </div>
+              </motion.div>
+            );
+          })}
         </div>
 
         {/* Deposit / Withdraw panel */}
@@ -110,24 +226,28 @@ export default function WalletPage() {
             <div style={{ marginBottom:'16px' }}>
               <label style={{ display:'block', fontSize:'12px', color:'rgba(255,255,255,0.45)', marginBottom:'8px', fontWeight:500 }}>Select Asset</label>
               <div style={{ display:'flex', gap:'8px', flexWrap:'wrap' }}>
-                {mockWallets.map(w => (
+                {wallets.map(w => {
+                   const color = ASSET_COLORS[w.asset] || '#ccc';
+                   return (
                   <button key={w.asset} onClick={() => setSelectedAsset(w.asset)} style={{
                     padding:'7px 14px', borderRadius:'8px', fontSize:'13px', fontWeight:600,
-                    border:`1px solid ${selectedAsset===w.asset ? `${w.color}80` : 'rgba(255,255,255,0.1)'}`,
-                    background: selectedAsset===w.asset ? `${w.color}15` : 'rgba(255,255,255,0.03)',
-                    color: selectedAsset===w.asset ? w.color : 'rgba(255,255,255,0.5)',
+                    border:`1px solid ${selectedAsset===w.asset ? `${color}80` : 'rgba(255,255,255,0.1)'}`,
+                    background: selectedAsset===w.asset ? `${color}15` : 'rgba(255,255,255,0.03)',
+                    color: selectedAsset===w.asset ? color : 'rgba(255,255,255,0.5)',
                     cursor:'pointer', transition:'all 0.2s',
                   }}>{w.asset}</button>
-                ))}
+                )})}
               </div>
             </div>
 
             {/* Amount */}
+            <form onSubmit={handleSubmit}>
             <div style={{ marginBottom:'16px' }}>
               <label style={{ display:'block', fontSize:'12px', color:'rgba(255,255,255,0.45)', marginBottom:'8px', fontWeight:500 }}>Amount ({selectedAsset})</label>
               <div style={{ position:'relative' }}>
                 <input
                   type="number"
+                  step="any"
                   value={amount}
                   onChange={e => setAmount(e.target.value)}
                   placeholder="0.00"
@@ -138,7 +258,7 @@ export default function WalletPage() {
                     outline:'none',
                   }}
                 />
-                <button onClick={() => setAmount(String(wallet.balance))} style={{
+                <button type="button" onClick={() => setAmount(String(activeWallet.balance))} style={{
                   position:'absolute', right:'12px', top:'50%', transform:'translateY(-50%)',
                   background:'rgba(201,160,80,0.15)', border:'1px solid rgba(201,160,80,0.3)',
                   borderRadius:'6px', padding:'3px 10px', color:'#C9A050', fontSize:'12px',
@@ -146,7 +266,7 @@ export default function WalletPage() {
                 }}>MAX</button>
               </div>
               <div style={{ fontSize:'12px', color:'rgba(255,255,255,0.35)', marginTop:'6px' }}>
-                Available: {wallet.balance} {selectedAsset} (≈ ${wallet.usdValue.toLocaleString()})
+                Available: {activeWallet.balance} {selectedAsset} (≈ ${ (Number(activeWallet.balance) * (prices[selectedAsset]?.price || (selectedAsset==='USDT'?1:0))).toLocaleString() })
               </div>
             </div>
 
@@ -177,15 +297,31 @@ export default function WalletPage() {
               )}
             </AnimatePresence>
 
+            {message && (
+              <div style={{
+                padding:'10px 14px', borderRadius:'8px', marginBottom:'16px', fontSize:'13px',
+                background: message.type==='success' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                border: `1px solid ${message.type==='success' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                color: message.type==='success' ? '#22c55e' : '#ef4444'
+              }}>
+                {message.text}
+              </div>
+            )}
+
             {/* Submit */}
-            <button style={{
-              width:'100%', padding:'14px', borderRadius:'11px',
-              background: mode==='deposit' ? 'linear-gradient(135deg, #C9A050, #E5C97A)' : 'linear-gradient(135deg, #00B0D0, #00E5FF)',
-              border:'none', color:'#0A0A0A', fontWeight:700, fontSize:'15px',
-              cursor:'pointer', transition:'all 0.2s',
-            }}>
-              {mode === 'deposit' ? '↓ Generate Deposit Address' : '↑ Request Withdrawal'}
+            <button
+              disabled={isSubmitting}
+              type="submit" 
+              style={{
+                width:'100%', padding:'14px', borderRadius:'11px',
+                background: mode==='deposit' ? 'linear-gradient(135deg, #C9A050, #E5C97A)' : 'linear-gradient(135deg, #00B0D0, #00E5FF)',
+                border:'none', color:'#0A0A0A', fontWeight:700, fontSize:'15px',
+                cursor: isSubmitting ? 'not-allowed' : 'pointer', opacity: isSubmitting ? 0.7 : 1, transition:'all 0.2s',
+              }}
+            >
+              {isSubmitting ? 'Processing...' : (mode === 'deposit' ? '↓ Process Deposit' : '↑ Request Withdrawal')}
             </button>
+            </form>
           </div>
 
           {/* Deposit address panel */}
@@ -215,10 +351,10 @@ export default function WalletPage() {
                   <div style={{ fontSize:'11px', color:'rgba(255,255,255,0.35)', marginBottom:'6px' }}>Deposit Address</div>
                   <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:'10px' }}>
                     <span style={{ fontSize:'13px', color:'rgba(255,255,255,0.8)', wordBreak:'break-all', fontFamily:'monospace' }}>
-                      {wallet.address}
+                      {activeWallet.address || 'Loading...'}
                     </span>
                     <div style={{ display:'flex', gap:'4px', flexShrink:0 }}>
-                      <CopyButton text={wallet.address} />
+                      <CopyButton text={activeWallet.address || ''} />
                       <ExternalLink size={14} color="rgba(255,255,255,0.3)" />
                     </div>
                   </div>
@@ -278,9 +414,12 @@ export default function WalletPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(tx => {
+                {filteredTransactions.map(tx => {
                   const sc = tx.status === 'completed' ? '#22c55e' : tx.status === 'pending' ? '#f59e0b' : '#ef4444';
                   const tc = tx.type === 'deposit' ? '#22c55e' : tx.type === 'withdrawal' ? '#ef4444' : '#C9A050';
+                  const livePrice = prices[tx.asset]?.price || (tx.asset === 'USDT' ? 1 : 0);
+                  const usdVal = Number(tx.amount) * livePrice;
+
                   return (
                     <tr key={tx.id} className="table-row-hover" style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
                       <td style={{ padding:'13px 12px' }}>
@@ -290,19 +429,26 @@ export default function WalletPage() {
                       </td>
                       <td style={{ padding:'13px 12px', fontWeight:600 }}>{tx.asset}</td>
                       <td style={{ padding:'13px 12px', fontSize:'13px' }}>{tx.amount}</td>
-                      <td style={{ padding:'13px 12px', fontSize:'13px' }}>${tx.usd.toLocaleString()}</td>
+                      <td style={{ padding:'13px 12px', fontSize:'13px' }}>${usdVal.toLocaleString(undefined, { maximumFractionDigits:2 })}</td>
                       <td style={{ padding:'13px 12px' }}>
                         <span style={{ fontSize:'12px', padding:'3px 10px', borderRadius:'6px', fontWeight:600, textTransform:'capitalize', background:`${sc}15`, color:sc }}>
                           {tx.status}
                         </span>
                       </td>
-                      <td style={{ padding:'13px 12px', fontSize:'12px', color:'rgba(255,255,255,0.45)' }}>{tx.date}</td>
+                      <td style={{ padding:'13px 12px', fontSize:'12px', color:'rgba(255,255,255,0.45)' }}>{new Date(tx.created_at).toLocaleDateString()}</td>
                       <td style={{ padding:'13px 12px', fontSize:'12px', color:'rgba(255,255,255,0.3)', fontFamily:'monospace' }}>
-                        {tx.hash || '—'}
+                        {tx.tx_hash ? `${tx.tx_hash.slice(0,6)}...${tx.tx_hash.slice(-4)}` : '—'}
                       </td>
                     </tr>
                   );
                 })}
+                {filteredTransactions.length === 0 && (
+                  <tr>
+                    <td colSpan={7} style={{ padding:'40px', textAlign:'center', color:'rgba(255,255,255,0.2)', fontSize:'14px' }}>
+                      No transaction history found.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

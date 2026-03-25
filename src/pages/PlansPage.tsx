@@ -1,9 +1,81 @@
-import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Check, AlertTriangle, ArrowRight, Zap, TrendingUp, Star } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Check, AlertTriangle, ArrowRight, Zap, TrendingUp, Star, Loader2, X } from 'lucide-react';
 import { mockPlans } from '../mock/data';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 
 export default function PlansPage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [usdtBalance, setUsdtBalance] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<any>(null);
+  const [investAmt, setInvestAmt] = useState('');
+  const [message, setMessage] = useState<{ type: 'success'|'error', text: string } | null>(null);
+
+  useEffect(() => {
+    async function fetchBalance() {
+      if (!user) return;
+      const { data } = await supabase.from('wallets').select('balance').eq('user_id', user.id).eq('asset', 'USDT').single();
+      if (data) setUsdtBalance(Number(data.balance));
+    }
+    fetchBalance();
+  }, [user]);
+
+  async function handleInvest() {
+    if (!user || !selectedPlan || !investAmt) return;
+    const amt = Number(investAmt);
+
+    if (amt < selectedPlan.minAmount) {
+      setMessage({ type: 'error', text: `Minimum investment for this plan is $${selectedPlan.minAmount}` });
+      return;
+    }
+    if (selectedPlan.maxAmount && amt > selectedPlan.maxAmount) {
+      setMessage({ type: 'error', text: `Maximum investment for this plan is $${selectedPlan.maxAmount}` });
+      return;
+    }
+    if (amt > usdtBalance) {
+      setMessage({ type: 'error', text: 'Insufficient USDT balance. Please deposit more funds first.' });
+      return;
+    }
+
+    setIsSubmitting(true);
+    setMessage(null);
+
+    try {
+      // 1. Create investment
+      const { error: iErr } = await supabase.from('investments').insert({
+        user_id: user.id,
+        plan_name: selectedPlan.name,
+        amount: amt,
+        status: 'active',
+        start_date: new Date().toISOString()
+      });
+      if (iErr) throw iErr;
+
+      // 2. Deduct USDT
+      const { error: wErr } = await supabase.from('wallets')
+        .update({ balance: usdtBalance - amt })
+        .eq('user_id', user.id)
+        .eq('asset', 'USDT');
+      if (wErr) throw wErr;
+
+      setMessage({ type: 'success', text: `Investment of $${amt} in ${selectedPlan.name} successful!` });
+      setUsdtBalance(prev => prev - amt);
+      setTimeout(() => {
+        setSelectedPlan(null);
+        setInvestAmt('');
+        navigate('/dashboard');
+      }, 2000);
+
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Investment failed' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
 
   return (
     <div style={{ paddingTop:'100px', padding:'100px 24px 60px' }}>
@@ -42,7 +114,8 @@ export default function PlansPage() {
         }}>
           {mockPlans.map((plan, i) => {
             const isPopular = plan.popular;
-            const accentColor = plan.tier === 1 ? '#888' : plan.tier === 2 ? '#C9A050' : '#00E5FF';
+            const colors = { 1:'#888', 2:'#26A17B', 3:'#C9A050', 4:'#00E5FF', 5:'#8b5cf6' };
+            const accentColor = colors[plan.tier as keyof typeof colors] || '#C9A050';
             return (
               <motion.div
                 key={plan.id}
@@ -78,7 +151,7 @@ export default function PlansPage() {
                     background:`${accentColor}20`, border:`1px solid ${accentColor}40`,
                     display:'flex', alignItems:'center', justifyContent:'center',
                   }}>
-                    {plan.tier === 1 ? <Zap size={18} color={accentColor} /> : plan.tier === 2 ? <TrendingUp size={18} color={accentColor} /> : <Star size={18} color={accentColor} />}
+                    {plan.tier === 1 ? <Zap size={18} color={accentColor} /> : plan.tier === 2 ? <TrendingUp size={18} color={accentColor} /> : plan.tier === 3 ? <Star size={18} color={accentColor} /> : plan.tier === 4 ? <Zap size={18} color={accentColor} fill={accentColor} /> : <TrendingUp size={18} color={accentColor} strokeWidth={3} />}
                   </div>
                   <div>
                     <div style={{ fontSize:'20px', fontWeight:800, color:accentColor }}>{plan.name}</div>
@@ -125,21 +198,106 @@ export default function PlansPage() {
                 </ul>
 
                 {/* CTA */}
-                <Link to="/register" style={{
-                  display:'flex', alignItems:'center', justifyContent:'center', gap:'8px',
-                  padding:'14px', borderRadius:'12px', textDecoration:'none',
-                  fontWeight:700, fontSize:'15px', transition:'all 0.2s',
-                  background: isPopular ? 'linear-gradient(135deg, #C9A050, #E5C97A)' : 'rgba(255,255,255,0.05)',
-                  border: isPopular ? 'none' : `1px solid ${accentColor}40`,
-                  color: isPopular ? '#0A0A0A' : accentColor,
-                  boxShadow: isPopular ? '0 0 30px rgba(201,160,80,0.3)' : 'none',
-                }}>
-                  Get Started <ArrowRight size={16} />
-                </Link>
+                {user ? (
+                  <button
+                    onClick={() => { setSelectedPlan(plan); setInvestAmt(String(plan.minAmount)); }}
+                    style={{
+                      width:'100%', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px',
+                      padding:'14px', borderRadius:'12px', cursor:'pointer',
+                      fontWeight:700, fontSize:'15px', transition:'all 0.2s',
+                      background: isPopular ? 'linear-gradient(135deg, #C9A050, #E5C97A)' : 'rgba(255,255,255,0.05)',
+                      border: isPopular ? 'none' : `1px solid ${accentColor}40`,
+                      color: isPopular ? '#0A0A0A' : accentColor,
+                      boxShadow: isPopular ? '0 0 30px rgba(201,160,80,0.3)' : 'none',
+                    }}
+                  >
+                    Invest Now <ArrowRight size={16} />
+                  </button>
+                ) : (
+                  <Link to="/register" style={{
+                    display:'flex', alignItems:'center', justifyContent:'center', gap:'8px',
+                    padding:'14px', borderRadius:'12px', textDecoration:'none',
+                    fontWeight:700, fontSize:'15px', transition:'all 0.2s',
+                    background: isPopular ? 'linear-gradient(135deg, #C9A050, #E5C97A)' : 'rgba(255,255,255,0.05)',
+                    border: isPopular ? 'none' : `1px solid ${accentColor}40`,
+                    color: isPopular ? '#0A0A0A' : accentColor,
+                    boxShadow: isPopular ? '0 0 30px rgba(201,160,80,0.3)' : 'none',
+                  }}>
+                    Get Started <ArrowRight size={16} />
+                  </Link>
+                )}
               </motion.div>
             );
           })}
         </div>
+
+        {/* Investment Modal */}
+        <AnimatePresence>
+          {selectedPlan && (
+            <div style={{
+              position:'fixed', top:0, left:0, right:0, bottom:0,
+              background:'rgba(0,0,0,0.85)', backdropFilter:'blur(5px)',
+              zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:'20px'
+            }}>
+              <motion.div
+                initial={{ opacity:0, scale:0.9 }}
+                animate={{ opacity:1, scale:1 }}
+                exit={{ opacity:0, scale:0.9 }}
+                style={{
+                  background:'#111', border:'1px solid rgba(255,255,255,0.1)',
+                  borderRadius:'24px', padding:'32px', maxWidth:'440px', width:'100%', position:'relative'
+                }}
+              >
+                <button 
+                  onClick={() => setSelectedPlan(null)}
+                  style={{ position:'absolute', right:'20px', top:'20px', background:'none', border:'none', color:'rgba(255,255,255,0.3)', cursor:'pointer' }}
+                ><X size={24} /></button>
+
+                <h3 style={{ fontSize:'22px', fontWeight:800, marginBottom:'8px' }}>Invest in {selectedPlan.name}</h3>
+                <p style={{ fontSize:'14px', color:'rgba(255,255,255,0.5)', marginBottom:'24px' }}>
+                  Available Balance: <strong style={{ color:'#C9A050' }}>${usdtBalance.toLocaleString()} USDT</strong>
+                </p>
+
+                <div style={{ marginBottom:'20px' }}>
+                   <label style={{ display:'block', fontSize:'12px', color:'rgba(255,255,255,0.4)', marginBottom:'8px' }}>Investment Amount (USDT)</label>
+                   <input 
+                    type="number"
+                    value={investAmt}
+                    onChange={e => setInvestAmt(e.target.value)}
+                    placeholder={`Min. $${selectedPlan.minAmount}`}
+                    style={{
+                      width:'100%', padding:'14px', borderRadius:'12px', background:'rgba(255,255,255,0.05)',
+                      border:'1px solid rgba(255,255,255,0.1)', color:'#fff', fontSize:'18px', fontWeight:700, outline:'none'
+                    }}
+                   />
+                </div>
+
+                {message && (
+                  <div style={{
+                    padding:'12px 16px', borderRadius:'10px', marginBottom:'20px', fontSize:'14px',
+                    background: message.type==='success' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                    border: `1px solid ${message.type==='success' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                    color: message.type==='success' ? '#22c55e' : '#ef4444'
+                  }}>{message.text}</div>
+                )}
+
+                <button
+                  disabled={isSubmitting}
+                  onClick={handleInvest}
+                  style={{
+                    width:'100%', padding:'16px', borderRadius:'14px',
+                    background:'linear-gradient(135deg, #C9A050, #E5C97A)',
+                    color:'#0A0A0A', fontWeight:800, fontSize:'16px', border:'none',
+                    cursor: isSubmitting ? 'not-allowed' : 'pointer', transition:'all 0.2s',
+                    display:'flex', alignItems:'center', justifyContent:'center', gap:'10px'
+                  }}
+                >
+                  {isSubmitting ? <><Loader2 className="spin" size={20} /> Processing...</> : 'Confirm Investment'}
+                </button>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
 
         {/* FAQ mini */}
         <div style={{ background:'#111', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'18px', padding:'32px' }}>

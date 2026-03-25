@@ -1,11 +1,13 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { TrendingUp, Wallet, ArrowUpRight, ArrowDownLeft, Activity, DollarSign, BarChart2 } from 'lucide-react';
+import { TrendingUp, Wallet, ArrowUpRight, ArrowDownLeft, Activity, DollarSign, BarChart2, Loader2 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { mockPortfolio, mockTrades, mockTransactions, mockPrices } from '../mock/data';
+import { useMarketData } from '../context/MarketContext';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 
-const COLORS = ['#C9A050', '#F7931A', '#627EEA', '#26A17B'];
+const COLORS = ['#C9A050', '#F7931A', '#627EEA', '#f97316', '#26A17B'];
 
 const navItems = [
   { label:'Overview',   to:'/dashboard', icon: BarChart2     },
@@ -53,11 +55,73 @@ const CustomPieTooltip = ({ active, payload }: any) => {
 };
 
 export default function DashboardPage() {
+  const { user } = useAuth();
+  const { prices, loading: marketLoading } = useMarketData();
   const [tab, setTab] = useState<'trades'|'transactions'>('trades');
-  const p = mockPortfolio;
-  const up = p.change24h >= 0;
+  
+  // Real data state
+  const [wallets, setWallets] = useState<any[]>([]);
+  const [trades, setTrades] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const pieData = p.assets.map(a => ({ name:a.asset, value:a.allocation }));
+  useEffect(() => {
+    async function fetchData() {
+      if (!user) return;
+      setIsLoading(true);
+      try {
+        const [wRes, tRes, txRes] = await Promise.all([
+          supabase.from('wallets').select('*').eq('user_id', user.id),
+          supabase.from('trades').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+          supabase.from('transactions').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+        ]);
+
+        if (wRes.data) setWallets(wRes.data);
+        if (tRes.data) setTrades(tRes.data);
+        if (txRes.data) setTransactions(txRes.data);
+      } catch (err) {
+        console.error('Error fetching dashboard data:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchData();
+  }, [user]);
+
+  // Compute live values from wallets
+  const liveAssets = wallets.map(w => {
+    const activePrice = prices[w.asset]?.price || (w.asset === 'USDT' ? 1 : 0);
+    return { asset: w.asset, balance: Number(w.balance), value: Number(w.balance) * activePrice };
+  });
+
+  const liveTotalValue = liveAssets.reduce((sum: number, a: any) => sum + a.value, 0);
+  
+  let totalChangeVal = 0;
+  liveAssets.forEach((a: any) => {
+    const chg = prices[a.asset]?.change || 0;
+    totalChangeVal += a.value * (chg / 100);
+  });
+
+  // Calculate Total P&L from closed and open trades
+  const totalPnL = trades.reduce((sum: number, t: any) => {
+    const currentPrice = prices[t.asset]?.price || 0;
+    const tradePnL = (currentPrice - Number(t.entry_price)) * Number(t.amount);
+    return sum + (t.type === 'buy' ? tradePnL : -tradePnL);
+  }, 0);
+  
+  const liveChange24h = liveTotalValue > 0 ? (totalChangeVal / liveTotalValue) * 100 : 0;
+  const up = liveChange24h >= 0;
+
+  const pieData = liveAssets.map((a: any) => ({ name:a.asset, value: liveTotalValue > 0 ? (a.value/liveTotalValue)*100 : 0 }));
+
+  if (isLoading || marketLoading) {
+    return (
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', flexDirection:'column', gap:'16px' }}>
+        <Loader2 size={40} color="#C9A050" className="spin" />
+        <div style={{ color:'rgba(255,255,255,0.4)', fontSize:'14px' }}>Loading your dashboard...</div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ paddingTop:'92px', minHeight:'100vh' }}>
@@ -116,10 +180,10 @@ export default function DashboardPage() {
           {/* Summary cards */}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:'16px' }}>
             {[
-              { label:'Total Portfolio', value:`$${p.totalValue.toLocaleString(undefined,{minimumFractionDigits:2})}`, sub:`${up?'+':''}${p.change24h}% today`, subColor:up?'#22c55e':'#ef4444', icon:DollarSign, highlight:true },
-              { label:'Total P&L', value:`+$${p.pnl.toLocaleString(undefined,{minimumFractionDigits:2})}`, sub:'All time',  subColor:'#22c55e', icon:TrendingUp },
-              { label:'Active Trades', value:String(mockTrades.length), sub:'Open positions', subColor:'rgba(255,255,255,0.4)', icon:Activity },
-              { label:'Pending',       value:'1', sub:'Withdrawal queued',  subColor:'#f59e0b', icon:ArrowUpRight },
+              { label:'Total Portfolio', value: `$${liveTotalValue.toLocaleString(undefined,{minimumFractionDigits:2})}`, sub: `${up?'+':''}${liveChange24h.toFixed(2)}% today`, subColor:up?'#22c55e':'#ef4444', icon:DollarSign, highlight:true },
+              { label:'Total P&L', value:`${totalPnL >= 0 ? '+' : ''}$${totalPnL.toLocaleString(undefined,{minimumFractionDigits:2})}`, sub:'All time',  subColor: totalPnL >= 0 ? '#22c55e' : '#ef4444', icon:TrendingUp },
+              { label:'Active Trades', value:String(trades.filter((t: any) => t.status === 'open').length), sub:'Open positions', subColor:'rgba(255,255,255,0.4)', icon:Activity },
+              { label:'Pending',       value:String(transactions.filter((tx: any) => tx.status === 'pending').length), sub:'Account events',  subColor:'#f59e0b', icon:ArrowUpRight },
             ].map(card => (
               <motion.div
                 key={card.label}
@@ -159,20 +223,20 @@ export default function DashboardPage() {
                 <div style={{ fontSize:'11px', color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.08em' }}>Allocation</div>
                 <div style={{ fontSize:'11px', color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.08em', textAlign:'right' }}>Balance</div>
                 <div style={{ fontSize:'11px', color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.08em', textAlign:'right' }}>Value</div>
-                {p.assets.map((a, i) => (
-                  <>
+                {liveAssets.map((a, i) => (
+                  <div key={a.asset} style={{ display:'contents' }}>
                     <div key={`${a.asset}-icon`} style={{ display:'flex', alignItems:'center', gap:'8px' }}>
                       <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:COLORS[i] }} />
                       <span style={{ fontWeight:600, fontSize:'14px' }}>{a.asset}</span>
                     </div>
                     <div key={`${a.asset}-bar`}>
                       <div style={{ height:'5px', background:'rgba(255,255,255,0.06)', borderRadius:'3px' }}>
-                        <div style={{ height:'5px', width:`${a.allocation}%`, background:COLORS[i], borderRadius:'3px' }} />
+                        <div style={{ height:'5px', width:`${liveTotalValue > 0 ? (a.value/liveTotalValue)*100 : 0}%`, background:COLORS[i], borderRadius:'3px' }} />
                       </div>
                     </div>
                     <div key={`${a.asset}-bal`} style={{ textAlign:'right', fontSize:'13px', color:'rgba(255,255,255,0.65)' }}>{a.balance}</div>
                     <div key={`${a.asset}-val`} style={{ textAlign:'right', fontSize:'13px', fontWeight:600, color:'#fff' }}>${a.value.toLocaleString(undefined,{minimumFractionDigits:2})}</div>
-                  </>
+                  </div>
                 ))}
               </div>
             </div>
@@ -191,13 +255,13 @@ export default function DashboardPage() {
                 </PieChart>
               </ResponsiveContainer>
               <div style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
-                {p.assets.map((a, i) => (
+                {liveAssets.map((a, i) => (
                   <div key={a.asset} style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
                     <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
                       <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:COLORS[i] }} />
                       <span style={{ fontSize:'12px', color:'rgba(255,255,255,0.6)' }}>{a.asset}</span>
                     </div>
-                    <span style={{ fontSize:'12px', fontWeight:600, color:COLORS[i] }}>{a.allocation}%</span>
+                    <span style={{ fontSize:'12px', fontWeight:600, color:COLORS[i] }}>{liveTotalValue > 0 ? ((a.value/liveTotalValue)*100).toFixed(1) : 0}%</span>
                   </div>
                 ))}
               </div>
@@ -206,15 +270,15 @@ export default function DashboardPage() {
 
           {/* Live prices strip */}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:'12px' }}>
-            {Object.entries(mockPrices).map(([sym, d]) => (
-              <div key={sym} style={{
+            {Object.values(prices).map((d) => (
+              <div key={d.symbol} style={{
                 background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.06)',
                 borderRadius:'10px', padding:'12px 16px',
                 display:'flex', justifyContent:'space-between', alignItems:'center',
               }}>
                 <div>
-                  <div style={{ fontSize:'12px', color:'rgba(255,255,255,0.4)', marginBottom:'3px' }}>{sym}</div>
-                  <div style={{ fontWeight:700, fontSize:'14px' }}>${d.price.toLocaleString(undefined,{ maximumFractionDigits:2 })}</div>
+                  <div style={{ fontSize:'12px', color:'rgba(255,255,255,0.4)', marginBottom:'3px' }}>{d.symbol}</div>
+                  <div style={{ fontWeight:700, fontSize:'14px' }}>${d.price.toLocaleString(undefined,{ maximumFractionDigits:2, minimumFractionDigits:2 })}</div>
                 </div>
                 <span style={{
                   fontSize:'12px', fontWeight:600, padding:'3px 8px', borderRadius:'6px',
@@ -257,7 +321,13 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {mockTrades.map(t => (
+                    {trades.map(t => {
+                      const currentPrice = prices[t.asset]?.price || 0;
+                      const pnl = (currentPrice - Number(t.entry_price)) * Number(t.amount);
+                      const pnlPct = t.entry_price > 0 ? (pnl / (Number(t.entry_price) * Number(t.amount))) * 100 : 0;
+                      const isUp = pnl >= 0;
+                      
+                      return (
                       <tr key={t.id} className="table-row-hover" style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
                         <td style={{ padding:'12px 12px', fontWeight:600 }}>{t.asset}</td>
                         <td style={{ padding:'12px 12px' }}>
@@ -268,12 +338,21 @@ export default function DashboardPage() {
                           }}>{t.type}</span>
                         </td>
                         <td style={{ padding:'12px 12px', fontSize:'13px', color:'rgba(255,255,255,0.7)' }}>{t.amount}</td>
-                        <td style={{ padding:'12px 12px', fontSize:'13px' }}>${t.entryPrice.toLocaleString()}</td>
-                        <td style={{ padding:'12px 12px', fontSize:'13px' }}>${t.currentPrice.toLocaleString()}</td>
-                        <td style={{ padding:'12px 12px', fontWeight:600, color:'#22c55e' }}>+${t.pnl} ({t.pnlPct}%)</td>
-                        <td style={{ padding:'12px 12px', fontSize:'12px', color:'rgba(255,255,255,0.4)' }}>{t.opened}</td>
+                        <td style={{ padding:'12px 12px', fontSize:'13px' }}>${Number(t.entry_price).toLocaleString()}</td>
+                        <td style={{ padding:'12px 12px', fontSize:'13px' }}>${currentPrice.toLocaleString()}</td>
+                        <td style={{ padding:'12px 12px', fontWeight:600, color: isUp ? '#22c55e' : '#ef4444' }}>
+                          {isUp?'+':''}${pnl.toLocaleString(undefined, { maximumFractionDigits:2 })} ({pnlPct.toFixed(2)}%)
+                        </td>
+                        <td style={{ padding:'12px 12px', fontSize:'12px', color:'rgba(255,255,255,0.4)' }}>{new Date(t.created_at).toLocaleDateString()}</td>
                       </tr>
-                    ))}
+                    )})}
+                    {trades.length === 0 && (
+                      <tr>
+                        <td colSpan={7} style={{ padding:'32px', textAlign:'center', color:'rgba(255,255,255,0.3)', fontSize:'14px' }}>
+                          No active trades found.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -288,7 +367,7 @@ export default function DashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {mockTransactions.map(tx => {
+                    {transactions.map(tx => {
                       const statusColor = tx.status === 'completed' ? '#22c55e' : tx.status === 'pending' ? '#f59e0b' : '#ef4444';
                       return (
                         <tr key={tx.id} className="table-row-hover" style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
@@ -301,17 +380,24 @@ export default function DashboardPage() {
                           </td>
                           <td style={{ padding:'12px 12px', fontWeight:600 }}>{tx.asset}</td>
                           <td style={{ padding:'12px 12px', fontSize:'13px', color:'rgba(255,255,255,0.7)' }}>{tx.amount}</td>
-                          <td style={{ padding:'12px 12px', fontSize:'13px' }}>${tx.usd.toLocaleString()}</td>
+                          <td style={{ padding:'12px 12px', fontSize:'13px' }}>${(Number(tx.amount) * (prices[tx.asset]?.price || 1)).toLocaleString()}</td>
                           <td style={{ padding:'12px 12px' }}>
                             <span style={{
                               fontSize:'12px', padding:'3px 10px', borderRadius:'6px', fontWeight:600, textTransform:'capitalize',
                               background:`${statusColor}18`, color:statusColor,
                             }}>{tx.status}</span>
                           </td>
-                          <td style={{ padding:'12px 12px', fontSize:'12px', color:'rgba(255,255,255,0.4)' }}>{tx.date}</td>
+                          <td style={{ padding:'12px 12px', fontSize:'12px', color:'rgba(255,255,255,0.4)' }}>{new Date(tx.created_at).toLocaleDateString()}</td>
                         </tr>
                       );
                     })}
+                    {transactions.length === 0 && (
+                      <tr>
+                        <td colSpan={6} style={{ padding:'32px', textAlign:'center', color:'rgba(255,255,255,0.3)', fontSize:'14px' }}>
+                          No transactions found.
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>

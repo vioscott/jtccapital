@@ -1,6 +1,9 @@
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { MarketProvider } from './context/MarketContext';
 import Navbar from './components/layout/Navbar';
+import Sidebar from './components/layout/Sidebar';
 import Footer from './components/layout/Footer';
 
 import LandingPage    from './pages/LandingPage';
@@ -11,6 +14,8 @@ import DashboardPage  from './pages/DashboardPage';
 import WalletPage     from './pages/WalletPage';
 import TradingPage    from './pages/TradingPage';
 import SupportPage    from './pages/SupportPage';
+import LoginPage      from './pages/LoginPage';
+import RegisterPage   from './pages/RegisterPage';
 
 // Page-level transition wrapper
 function PageTransition({ children }: { children: React.ReactNode }) {
@@ -26,92 +31,67 @@ function PageTransition({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Pages that should NOT show Footer (app pages have their own scroll layout)
-const NO_FOOTER_ROUTES = ['/dashboard', '/wallet', '/trading'];
+// Protected Route Wrapper
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { session, isLoading } = useAuth();
+  if (isLoading) return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center' }}><div className="pulse-gold" style={{width:20,height:20,borderRadius:'50%',background:'#C9A050'}}/></div>;
+  if (!session) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
+
 
 function AppContent() {
   const location = useLocation();
-  const showFooter = !NO_FOOTER_ROUTES.some(r => location.pathname.startsWith(r));
+  const isDashboard = ['/dashboard', '/wallet', '/trading'].some(path => location.pathname.startsWith(path));
+  const showFooter = !isDashboard;
 
   return (
-    <>
+    <div style={{ display: 'flex', minHeight: '100vh', flexDirection: 'column' }}>
       <Navbar />
-      <AnimatePresence mode="wait">
-        <Routes location={location} key={location.pathname}>
-          <Route path="/"          element={<PageTransition><LandingPage /></PageTransition>} />
-          <Route path="/about"     element={<PageTransition><AboutPage /></PageTransition>} />
-          <Route path="/markets"   element={<PageTransition><MarketsPage /></PageTransition>} />
-          <Route path="/plans"     element={<PageTransition><PlansPage /></PageTransition>} />
-          <Route path="/dashboard" element={<PageTransition><DashboardPage /></PageTransition>} />
-          <Route path="/wallet"    element={<PageTransition><WalletPage /></PageTransition>} />
-          <Route path="/trading"   element={<PageTransition><TradingPage /></PageTransition>} />
-          <Route path="/support"   element={<PageTransition><SupportPage /></PageTransition>} />
-          {/* Login / Register placeholders */}
-          <Route path="/login"    element={<PageTransition><AuthPlaceholder mode="login" /></PageTransition>} />
-          <Route path="/register" element={<PageTransition><AuthPlaceholder mode="register" /></PageTransition>} />
-          {/* 404 */}
-          <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
-        </Routes>
-      </AnimatePresence>
-      {showFooter && <Footer />}
-    </>
-  );
-}
-
-// Simple auth placeholder screens
-function AuthPlaceholder({ mode }: { mode: 'login' | 'register' }) {
-  return (
-    <div style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', padding:'0 24px' }}>
-      <div style={{
-        background:'#111', border:'1px solid rgba(201,160,80,0.25)',
-        borderRadius:'20px', padding:'48px', maxWidth:'420px', width:'100%',
-        boxShadow:'0 0 50px rgba(201,160,80,0.12)',
-      }}>
-        <div style={{ textAlign:'center', marginBottom:'32px' }}>
-          <div style={{ fontSize:'32px', marginBottom:'12px' }}>🥇</div>
-          <h2 style={{ fontSize:'26px', fontWeight:800, marginBottom:'8px', color:'#C9A050' }}>
-            {mode === 'login' ? 'Welcome Back' : 'Create Account'}
-          </h2>
-          <p style={{ fontSize:'14px', color:'rgba(255,255,255,0.45)' }}>
-            {mode === 'login' ? 'Sign in to access your portfolio' : 'Start investing in Gold & Crypto today'}
-          </p>
-        </div>
-
-        {[
-          ...(mode === 'register' ? [{ label:'Full Name', placeholder:'John Doe', type:'text' }] : []),
-          { label:'Email Address', placeholder:'you@example.com', type:'email' },
-          { label:'Password',      placeholder:'••••••••',       type:'password' },
-        ].map(field => (
-          <div key={field.label} style={{ marginBottom:'14px' }}>
-            <label style={{ display:'block', fontSize:'12px', color:'rgba(255,255,255,0.45)', marginBottom:'7px', fontWeight:500 }}>{field.label}</label>
-            <input
-              type={field.type}
-              placeholder={field.placeholder}
-              style={{
-                width:'100%', padding:'12px 16px',
-                background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.1)',
-                borderRadius:'10px', color:'#fff', fontSize:'14px', outline:'none',
-              }}
-            />
+      <div style={{ display: 'flex', flex: 1 }}>
+        {isDashboard && (
+          <div className="hidden-mobile">
+            <Sidebar />
           </div>
-        ))}
-
-        <button style={{
-          width:'100%', padding:'14px', borderRadius:'11px', marginTop:'8px',
-          background:'linear-gradient(135deg, #C9A050, #E5C97A)',
-          border:'none', color:'#0A0A0A', fontWeight:700, fontSize:'15px', cursor:'pointer',
-          boxShadow:'0 0 25px rgba(201,160,80,0.35)',
-        }}>
-          {mode === 'login' ? 'Sign In' : 'Create Free Account'}
-        </button>
-
-        <p style={{ textAlign:'center', fontSize:'13px', color:'rgba(255,255,255,0.4)', marginTop:'20px' }}>
-          {mode === 'login' ? "Don't have an account? " : 'Already have an account? '}
-          <a href={mode === 'login' ? '/register' : '/login'} style={{ color:'#C9A050', textDecoration:'none', fontWeight:500 }}>
-            {mode === 'login' ? 'Sign Up' : 'Sign In'}
-          </a>
-        </p>
+        )}
+        <main 
+          style={{ flex: 1, width: '100%' }} 
+          className={isDashboard ? 'dashboard-main-content' : ''}
+        >
+          <AnimatePresence mode="wait">
+            <Routes location={location} key={location.pathname}>
+              <Route path="/"          element={<PageTransition><LandingPage /></PageTransition>} />
+              <Route path="/about"     element={<PageTransition><AboutPage /></PageTransition>} />
+              <Route path="/markets"   element={<PageTransition><MarketsPage /></PageTransition>} />
+              <Route path="/plans"     element={<PageTransition><PlansPage /></PageTransition>} />
+              
+              <Route path="/dashboard" element={<ProtectedRoute><PageTransition><DashboardPage /></PageTransition></ProtectedRoute>} />
+              <Route path="/wallet"    element={<ProtectedRoute><PageTransition><WalletPage /></PageTransition></ProtectedRoute>} />
+              <Route path="/trading"   element={<ProtectedRoute><PageTransition><TradingPage /></PageTransition></ProtectedRoute>} />
+              <Route path="/support"   element={<PageTransition><SupportPage /></PageTransition>} />
+              
+              <Route path="/login"    element={<PageTransition><LoginPage /></PageTransition>} />
+              <Route path="/register" element={<PageTransition><RegisterPage /></PageTransition>} />
+              <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
+            </Routes>
+          </AnimatePresence>
+        </main>
       </div>
+      {showFooter && <Footer />}
+
+      <style>{`
+        @media (min-width: 768px) {
+          .dashboard-main-content {
+            padding-left: 260px;
+          }
+        }
+        @media (max-width: 767px) {
+          .dashboard-main-content {
+            padding-left: 0;
+          }
+        }
+      `}</style>
     </div>
   );
 }
@@ -133,8 +113,12 @@ function NotFound() {
 
 export default function App() {
   return (
-    <Router>
-      <AppContent />
-    </Router>
+    <AuthProvider>
+      <MarketProvider>
+        <Router>
+          <AppContent />
+        </Router>
+      </MarketProvider>
+    </AuthProvider>
   );
 }

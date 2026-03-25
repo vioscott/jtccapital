@@ -4,6 +4,7 @@ export const mockPrices = {
   BTC:  { price: 87420.30, change: 2.85, changeAmt: 2421.50 },
   ETH:  { price: 3218.70, change: -0.92, changeAmt: -29.90 },
   USDT: { price: 1.0002, change: 0.01, changeAmt: 0.0001 },
+  OIL:  { price: 82.40, change: 0.85, changeAmt: 0.70 },
 };
 
 // Mock portfolio data
@@ -13,9 +14,10 @@ export const mockPortfolio = {
   changeAmt: 814.50,
   pnl: 2140.30,
   assets: [
-    { asset: 'GOLD',  balance: 5.2,    value: 17381.00, allocation: 70.5 },
+    { asset: 'GOLD',  balance: 5.2,    value: 17381.00, allocation: 40.5 },
     { asset: 'BTC',   balance: 0.0812, value: 7098.50,  allocation: 28.8 },
     { asset: 'ETH',   balance: 0.053,  value: 170.59,   allocation: 0.7  },
+    { asset: 'OIL',   balance: 150,    value: 12360.00, allocation: 30.0 },
     { asset: 'USDT',  balance: 0.71,   value: 0.71,     allocation: 0.0  },
   ],
 };
@@ -26,6 +28,7 @@ export const mockWallets = [
   { asset: 'ETH',  balance: 0.053,  usdValue: 170.59,   address: '0x4f...3a1b', color: '#627EEA' },
   { asset: 'USDT', balance: 820.71, usdValue: 820.71,   address: 'TJ7x...9mQr', color: '#26A17B' },
   { asset: 'GOLD', balance: 5.2,    usdValue: 17381.00, address: 'Internal vault', color: '#C9A050' },
+  { asset: 'OIL',  balance: 150,    usdValue: 12360.00, address: 'Internal vault', color: '#f97316' },
 ];
 
 // Mock transactions
@@ -49,23 +52,37 @@ export const mockTrades = [
 export const mockPlans = [
   {
     id:'p1', name:'Starter', tier:1,
-    minAmount:100,  maxAmount:999,
+    minAmount:500,  maxAmount:4999,
     roiMin:4,  roiMax:7,  duration:30,
-    features:['Daily returns','Anytime withdrawal','Email alerts','Basic support'],
+    features:['Daily returns','Standard withdrawal','Email alerts','Basic support'],
     popular: false,
   },
   {
     id:'p2', name:'Balanced', tier:2,
-    minAmount:1000, maxAmount:9999,
+    minAmount:5000, maxAmount:14999,
     roiMin:8,  roiMax:12, duration:60,
-    features:['Daily returns','Priority withdrawal','SMS alerts','Dedicated support','Portfolio analytics'],
-    popular: true,
+    features:['Daily returns','Priority withdrawal','SMS alerts','Dedicated support'],
+    popular: false,
   },
   {
     id:'p3', name:'Growth', tier:3,
-    minAmount:10000,maxAmount:null,
+    minAmount:15000,maxAmount:49999,
     roiMin:13, roiMax:18, duration:90,
-    features:['Daily returns','Instant withdrawal','24/7 Priority support','Advanced analytics','Personal advisor','API access'],
+    features:['Daily returns','Priority withdrawal','24/7 Priority support','Advanced analytics'],
+    popular: true,
+  },
+  {
+    id:'p4', name:'Premium', tier:4,
+    minAmount:50000,maxAmount:99999,
+    roiMin:19, roiMax:24, duration:120,
+    features:['Daily returns','Instant withdrawal','Personal advisor','API access','Exclusive events'],
+    popular: false,
+  },
+  {
+    id:'p5', name:'Elite', tier:5,
+    minAmount:100000,maxAmount:null,
+    roiMin:25, roiMax:35, duration:180,
+    features:['Daily returns','Instant withdrawal','Personal advisor','Institutional liquidity','VIP Concierge'],
     popular: false,
   },
 ];
@@ -89,6 +106,7 @@ export function generateChartData(base: number, volatility: number, count = 30) 
 export const goldChartData = generateChartData(3342, 15);
 export const btcChartData  = generateChartData(87420, 800);
 export const ethChartData  = generateChartData(3218, 60);
+export const oilChartData  = generateChartData(82.50, 1.5);
 
 // Mock FAQ
 export const mockFAQ = [

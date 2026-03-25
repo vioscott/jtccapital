@@ -2,18 +2,20 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, TrendingDown, RefreshCw, BarChart2, Clock } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { mockPrices, goldChartData, btcChartData, ethChartData, generateChartData } from '../mock/data';
+import { goldChartData, btcChartData, ethChartData, oilChartData, generateChartData } from '../mock/data';
+import { useMarketData, type AssetPrice } from '../context/MarketContext';
 
 const assets = [
   { symbol:'GOLD', name:'Gold (XAU/USD)',  icon:'🥇', data: goldChartData, color:'#C9A050', mktCap:'$13.9T', vol24h:'$214B' },
   { symbol:'BTC',  name:'Bitcoin',         icon:'₿',  data: btcChartData,  color:'#F7931A', mktCap:'$1.7T',  vol24h:'$48B'  },
   { symbol:'ETH',  name:'Ethereum',        icon:'⟠',  data: ethChartData,  color:'#627EEA', mktCap:'$387B',  vol24h:'$21B'  },
+  { symbol:'OIL',  name:'Crude Oil',       icon:'🛢️', data: oilChartData,  color:'#f97316', mktCap:'$2.1T',  vol24h:'$90B'  },
 ];
 
 const timeframes = ['1H','4H','1D','1W','1M'];
 
-function PriceCard({ asset, isSelected, onClick }: { asset: typeof assets[0]; isSelected: boolean; onClick: () => void }) {
-  const p = mockPrices[asset.symbol as keyof typeof mockPrices];
+function PriceCard({ asset, isSelected, onClick, priceData }: { asset: typeof assets[0]; isSelected: boolean; onClick: () => void; priceData: AssetPrice }) {
+  const p = priceData || { price:0, change:0, changeAmt:0 };
   const up = p.change >= 0;
   return (
     <motion.div
@@ -42,7 +44,7 @@ function PriceCard({ asset, isSelected, onClick }: { asset: typeof assets[0]; is
         ${p.price.toLocaleString(undefined,{ minimumFractionDigits:2, maximumFractionDigits:2 })}
       </div>
       <div style={{ fontSize:'12px', color: up?'#22c55e':'#ef4444', marginTop:'4px' }}>
-        {up?'+':''}{p.changeAmt.toLocaleString()} today
+        {up?'+':''}{Math.abs(p.changeAmt).toLocaleString(undefined,{maximumFractionDigits:2})} today
       </div>
     </motion.div>
   );
@@ -64,6 +66,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function MarketsPage() {
+  const { prices, refresh, loading } = useMarketData();
   const [selected, setSelected] = useState(0);
   const [tf, setTf] = useState('1H');
   const [chartData, setChartData] = useState(assets[0].data);
@@ -71,10 +74,12 @@ export default function MarketsPage() {
 
   useEffect(() => {
     const asset = assets[selected];
-    const base = mockPrices[asset.symbol as keyof typeof mockPrices].price;
-    const vol = asset.symbol === 'GOLD' ? 15 : asset.symbol === 'BTC' ? 800 : 60;
-    setChartData(generateChartData(base, vol, 30));
-  }, [selected, tf]);
+    const base = prices[asset.symbol]?.price || 0;
+    const vol = asset.symbol === 'GOLD' ? 15 : asset.symbol === 'BTC' ? 800 : asset.symbol === 'OIL' ? 2 : 60;
+    if (base > 0) {
+      setChartData(generateChartData(base, vol, 30));
+    }
+  }, [selected, tf, prices]);
 
   useEffect(() => {
     const id = setInterval(() => setLastUpdate(new Date()), 5000);
@@ -82,7 +87,7 @@ export default function MarketsPage() {
   }, []);
 
   const currentAsset = assets[selected];
-  const currentPrice = mockPrices[currentAsset.symbol as keyof typeof mockPrices];
+  const currentPrice = prices[currentAsset.symbol] || { price:0, change:0, changeAmt:0 };
   const up = currentPrice.change >= 0;
 
   return (
@@ -102,22 +107,24 @@ export default function MarketsPage() {
             </div>
           </div>
           <button
-            onClick={() => setLastUpdate(new Date())}
+            onClick={() => { refresh(); setLastUpdate(new Date()); }}
+            disabled={loading}
             style={{
               display:'flex', alignItems:'center', gap:'8px',
               background:'rgba(201,160,80,0.1)', border:'1px solid rgba(201,160,80,0.3)',
               borderRadius:'10px', padding:'10px 18px',
-              color:'#C9A050', fontSize:'13px', fontWeight:500, cursor:'pointer',
+              color:'#C9A050', fontSize:'13px', fontWeight:500, cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.7 : 1
             }}
           >
-            <RefreshCw size={14} /> Refresh
+            <RefreshCw size={14} className={loading?"spin":""} /> {loading ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
 
         {/* Asset cards */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))', gap:'16px', marginBottom:'32px' }}>
           {assets.map((a, i) => (
-            <PriceCard key={a.symbol} asset={a} isSelected={selected === i} onClick={() => setSelected(i)} />
+            <PriceCard key={a.symbol} asset={a} isSelected={selected === i} onClick={() => setSelected(i)} priceData={prices[a.symbol]} />
           ))}
         </div>
 
@@ -209,7 +216,7 @@ export default function MarketsPage() {
           <div style={{ background:'#111', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'14px', padding:'24px' }}>
             <h3 style={{ fontSize:'15px', fontWeight:600, marginBottom:'16px' }}>Other Assets</h3>
             {assets.filter((_,i) => i !== selected).map(a => {
-              const p = mockPrices[a.symbol as keyof typeof mockPrices];
+              const p = prices[a.symbol] || { price:0, change:0 };
               const uup = p.change >= 0;
               return (
                 <div

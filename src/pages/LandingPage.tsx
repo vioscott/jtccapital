@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Shield, TrendingUp, Zap, ChevronRight, Star, Lock, Globe } from 'lucide-react';
-import { mockPrices } from '../mock/data';
+import { mockPlans } from '../mock/data';
+import { useMarketData } from '../context/MarketContext';
 
 // ── Animated counter ──
 function Counter({ to, prefix = '', suffix = '' }: { to: number; prefix?: string; suffix?: string }) {
@@ -23,15 +24,16 @@ function Counter({ to, prefix = '', suffix = '' }: { to: number; prefix?: string
 
 // ── Price Ticker (marquee) ──
 function PriceTicker() {
+  const { prices } = useMarketData();
   const items = [
-    { label:'XAU/USD', price: mockPrices.GOLD.price, change: mockPrices.GOLD.change },
-    { label:'BTC/USD', price: mockPrices.BTC.price,  change: mockPrices.BTC.change  },
-    { label:'ETH/USD', price: mockPrices.ETH.price,  change: mockPrices.ETH.change  },
-    { label:'USDT',    price: mockPrices.USDT.price, change: mockPrices.USDT.change },
-    { label:'XAU/USD', price: mockPrices.GOLD.price, change: mockPrices.GOLD.change },
-    { label:'BTC/USD', price: mockPrices.BTC.price,  change: mockPrices.BTC.change  },
-    { label:'ETH/USD', price: mockPrices.ETH.price,  change: mockPrices.ETH.change  },
-    { label:'USDT',    price: mockPrices.USDT.price, change: mockPrices.USDT.change },
+    { label:'BTC/USD', price: prices.BTC?.price || 0,  change: prices.BTC?.change || 0  },
+    { label:'ETH/USD', price: prices.ETH?.price || 0,  change: prices.ETH?.change || 0  },
+    { label:'WTI CRUDE', price: prices.OIL?.price || 0, change: prices.OIL?.change || 0 },
+    { label:'XAU/USD', price: prices.GOLD?.price || 0, change: prices.GOLD?.change || 0 },
+    { label:'BTC/USD', price: prices.BTC?.price || 0,  change: prices.BTC?.change || 0  },
+    { label:'ETH/USD', price: prices.ETH?.price || 0,  change: prices.ETH?.change || 0  },
+    { label:'WTI CRUDE', price: prices.OIL?.price || 0, change: prices.OIL?.change || 0 },
+    { label:'XAU/USD', price: prices.GOLD?.price || 0, change: prices.GOLD?.change || 0 },
   ];
   return (
     <div style={{
@@ -57,10 +59,10 @@ function PriceTicker() {
 }
 
 const assets = [
-  { name:'Gold (XAU)', icon:'🥇', desc:'Invest in real-time spot gold with institutional-grade precision', color:'#C9A050', change:'+1.24%' },
-  { name:'Bitcoin',    icon:'₿',   desc:'The original digital asset. Store of value for the new era.',   color:'#F7931A', change:'+2.85%' },
-  { name:'Ethereum',   icon:'⟠',   desc:'Programmable money powering the decentralised economy.',       color:'#627EEA', change:'-0.92%' },
-  { name:'USDT',       icon:'$',   desc:'Stablecoin liquidity to manage your positions with ease.',     color:'#26A17B', change:'+0.01%' },
+  { symbol:'BTC',  name:'Bitcoin',    icon:'₿',   desc:'The original digital asset. Store of value for the new era.',   color:'#F7931A' },
+  { symbol:'ETH',  name:'Ethereum',   icon:'⟠',   desc:'Programmable money powering the decentralised economy.',       color:'#627EEA' },
+  { symbol:'OIL',  name:'Crude Oil',  icon:'🛢️', desc:'Access global energy markets with WTI Crude Oil futures.', color:'#f97316' },
+  { symbol:'GOLD', name:'Gold (XAU)', icon:'🥇', desc:'Invest in real-time spot gold with institutional-grade precision', color:'#C9A050' },
 ];
 
 const steps = [
@@ -83,6 +85,8 @@ const testimonials = [
 ];
 
 export default function LandingPage() {
+  const { prices } = useMarketData();
+
   return (
     <div style={{ paddingTop:'72px' }}>
       {/* Ticker */}
@@ -195,7 +199,12 @@ export default function LandingPage() {
                 <span style={{ color:'#22c55e', fontSize:'14px', fontWeight:600 }}>▲ +3.42% today</span>
               </div>
               <div style={{ marginTop:'18px', display:'flex', flexDirection:'column', gap:'10px' }}>
-                {[{ a:'GOLD', pct:70.5, color:'#C9A050' }, { a:'BTC', pct:28.8, color:'#F7931A' }, { a:'ETH', pct:0.7, color:'#627EEA' }].map(row => (
+                {[
+                  { a:'BTC',  pct:45.2, color:'#F7931A' },
+                  { a:'ETH',  pct:22.5, color:'#627EEA' },
+                  { a:'OIL',  pct:18.3, color:'#f97316' },
+                  { a:'GOLD', pct:14.0, color:'#C9A050' }
+                ].map(row => (
                   <div key={row.a}>
                     <div style={{ display:'flex', justifyContent:'space-between', marginBottom:'4px' }}>
                       <span style={{ fontSize:'13px', color:'rgba(255,255,255,0.7)' }}>{row.a}</span>
@@ -264,7 +273,11 @@ export default function LandingPage() {
             <p style={{ color:'rgba(255,255,255,0.5)', fontSize:'16px' }}>Trade gold and top cryptocurrencies on one unified platform</p>
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(240px, 1fr))', gap:'20px' }}>
-            {assets.map(asset => (
+            {assets.map(asset => {
+              const liveData = prices[asset.symbol];
+              const changeStr = liveData ? `${liveData.change >= 0 ? '+' : ''}${liveData.change.toFixed(2)}%` : '0.00%';
+              const up = liveData ? liveData.change >= 0 : true;
+              return (
               <motion.div
                 key={asset.name}
                 whileHover={{ y:-6, scale:1.02 }}
@@ -279,8 +292,8 @@ export default function LandingPage() {
                 <div style={{ fontSize:'36px', marginBottom:'12px' }}>{asset.icon}</div>
                 <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'10px' }}>
                   <div style={{ fontSize:'16px', fontWeight:700, color:'#fff' }}>{asset.name}</div>
-                  <span style={{ fontSize:'13px', fontWeight:600, color:'#22c55e', background:'rgba(34,197,94,0.1)', padding:'3px 8px', borderRadius:'6px' }}>
-                    {asset.change}
+                  <span style={{ fontSize:'13px', fontWeight:600, color:up?'#22c55e':'#ef4444', background:up?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)', padding:'3px 8px', borderRadius:'6px' }}>
+                    {changeStr}
                   </span>
                 </div>
                 <p style={{ color:'rgba(255,255,255,0.45)', fontSize:'13px', lineHeight:1.6 }}>{asset.desc}</p>
@@ -288,7 +301,7 @@ export default function LandingPage() {
                   Trade now <ChevronRight size={14} />
                 </div>
               </motion.div>
-            ))}
+            )})}
           </div>
         </div>
       </section>
@@ -350,28 +363,29 @@ export default function LandingPage() {
             Choose a managed plan or self-trade at market prices
           </p>
           <div style={{ display:'flex', gap:'20px', justifyContent:'center', flexWrap:'wrap' }}>
-            {[{ name:'Starter', roi:'4–7%', dur:'30 days', min:'$100', color:'#555' },
-              { name:'Balanced', roi:'8–12%', dur:'60 days', min:'$1,000', color:'#C9A050', popular:true },
-              { name:'Growth', roi:'13–18%', dur:'90 days', min:'$10,000', color:'#00E5FF' }].map(plan => (
+            {mockPlans.map(plan => {
+              const colors = { 1:'#888', 2:'#26A17B', 3:'#C9A050', 4:'#00E5FF', 5:'#8b5cf6' };
+              const color = colors[plan.tier as keyof typeof colors] || '#C9A050';
+              return (
               <div key={plan.name} style={{
-                background:'#111', border:`1px solid ${plan.color}40`,
-                borderRadius:'16px', padding:'28px 24px', minWidth:'200px', flex:'1',
-                maxWidth:'260px', position:'relative',
-                boxShadow: plan.popular ? `0 0 30px ${plan.color}30` : 'none',
+                background:'#111', border:`1px solid ${color}40`,
+                borderRadius:'16px', padding:'28px 24px', minWidth:'220px', flex:'1',
+                maxWidth:'280px', position:'relative',
+                boxShadow: plan.popular ? `0 0 30px ${color}30` : 'none',
               }}>
                 {plan.popular && (
                   <div style={{
                     position:'absolute', top:'-14px', left:'50%', transform:'translateX(-50%)',
                     background:'linear-gradient(135deg, #C9A050, #E5C97A)',
-                    color:'#0A0A0A', fontSize:'11px', fontWeight:700, padding:'4px 14px', borderRadius:'100px',
+                    color:'#0A0A0A', fontSize:'11px', fontWeight:800, padding:'4px 14px', borderRadius:'100px',
                   }}>MOST POPULAR</div>
                 )}
-                <div style={{ fontSize:'18px', fontWeight:700, color:plan.color, marginBottom:'8px' }}>{plan.name}</div>
-                <div style={{ fontSize:'28px', fontWeight:800, color:'#fff', marginBottom:'4px' }}>{plan.roi}</div>
-                <div style={{ fontSize:'13px', color:'rgba(255,255,255,0.45)', marginBottom:'16px' }}>APY Target · {plan.dur}</div>
-                <div style={{ fontSize:'13px', color:'rgba(255,255,255,0.5)' }}>From <strong style={{ color:'#fff' }}>{plan.min}</strong></div>
+                <div style={{ fontSize:'18px', fontWeight:800, color:color, marginBottom:'8px' }}>{plan.name}</div>
+                <div style={{ fontSize:'28px', fontWeight:800, color:'#fff', marginBottom:'4px' }}>{plan.roiMin}–{plan.roiMax}%</div>
+                <div style={{ fontSize:'13px', color:'rgba(255,255,255,0.45)', marginBottom:'16px' }}>APY Target · {plan.duration} days</div>
+                <div style={{ fontSize:'13px', color:'rgba(255,255,255,0.5)' }}>From <strong style={{ color:'#fff' }}>${plan.minAmount.toLocaleString()}</strong></div>
               </div>
-            ))}
+            )})}
           </div>
           <Link to="/plans" style={{
             display:'inline-flex', alignItems:'center', gap:'8px',

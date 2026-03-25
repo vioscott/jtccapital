@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, ChevronRight, Bell, User } from 'lucide-react';
+import { Menu, X, ChevronRight, Bell, User, LogOut } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import jtcLogo from '../../assets/images/logos/jtc_logo_full.png';
+import Sidebar from './Sidebar';
 
 const navLinks = [
   { label: 'Markets', to: '/markets' },
@@ -11,13 +13,13 @@ const navLinks = [
   { label: 'Support', to: '/support' },
 ];
 
-// Simulate auth state — in real app this comes from AuthContext
-const IS_AUTH = false;
-
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+  const { session, signOut } = useAuth();
+
+  const isDashboard = ['/dashboard', '/wallet', '/trading'].some(path => location.pathname.startsWith(path));
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
@@ -47,29 +49,31 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop Nav */}
-          <nav style={{ display: 'flex', alignItems: 'center', gap: '8px' }} className="hidden-mobile">
-            {navLinks.map(link => (
-              <Link
-                key={link.to}
-                to={link.to}
-                style={{
-                  padding: '8px 16px', borderRadius: '8px',
-                  fontSize: '14px', fontWeight: 500,
-                  color: location.pathname === link.to ? '#C9A050' : 'rgba(255,255,255,0.7)',
-                  background: location.pathname === link.to ? 'rgba(201,160,80,0.1)' : 'transparent',
-                  border: location.pathname === link.to ? '1px solid rgba(201,160,80,0.3)' : '1px solid transparent',
-                  textDecoration: 'none',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
+          {!isDashboard && (
+            <nav style={{ display: 'flex', alignItems: 'center', gap: '8px' }} className="hidden-mobile">
+              {navLinks.map(link => (
+                <Link
+                  key={link.to}
+                  to={link.to}
+                  style={{
+                    padding: '8px 16px', borderRadius: '8px',
+                    fontSize: '14px', fontWeight: 500,
+                    color: location.pathname === link.to ? '#C9A050' : 'rgba(255,255,255,0.7)',
+                    background: location.pathname === link.to ? 'rgba(201,160,80,0.1)' : 'transparent',
+                    border: location.pathname === link.to ? '1px solid rgba(201,160,80,0.3)' : '1px solid transparent',
+                    textDecoration: 'none',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  {link.label}
+                </Link>
+              ))}
+            </nav>
+          )}
 
           {/* CTA */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {IS_AUTH ? (
+            {session ? (
               <>
                 <button style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', padding: '8px' }}>
                   <Bell size={20} />
@@ -83,6 +87,13 @@ export default function Navbar() {
                 }}>
                   <User size={16} /> Dashboard
                 </Link>
+                <button onClick={signOut} style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  background: 'none', border:'1px solid rgba(255,255,255,0.1)',
+                  borderRadius: '10px', padding: '8px 14px', color: 'rgba(255,255,255,0.6)', cursor: 'pointer',
+                }}>
+                  <LogOut size={16} /> Logout
+                </button>
               </>
             ) : (
               <>
@@ -135,40 +146,64 @@ export default function Navbar() {
               position: 'fixed', top: 72, right: 0, bottom: 0, width: '280px',
               background: 'rgba(10,10,10,0.98)', backdropFilter: 'blur(20px)',
               borderLeft: '1px solid rgba(201,160,80,0.2)',
-              zIndex: 99, padding: '24px',
+              zIndex: 99, padding: isDashboard ? '0' : '24px',
               display: 'flex', flexDirection: 'column', gap: '8px',
             }}
           >
-            {navLinks.map(link => (
-              <Link
-                key={link.to}
-                to={link.to}
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  padding: '14px 16px', borderRadius: '10px',
-                  color: location.pathname === link.to ? '#C9A050' : '#fff',
-                  background: location.pathname === link.to ? 'rgba(201,160,80,0.1)' : 'rgba(255,255,255,0.03)',
-                  border: `1px solid ${location.pathname === link.to ? 'rgba(201,160,80,0.3)' : 'rgba(255,255,255,0.06)'}`,
-                  textDecoration: 'none', fontWeight: 500,
-                }}
-              >
-                {link.label} <ChevronRight size={16} />
-              </Link>
-            ))}
-            <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <Link to="/login" style={{
-                padding: '13px', borderRadius: '10px',
-                border: '1px solid rgba(201,160,80,0.4)',
-                color: '#C9A050', fontWeight: 500,
-                textDecoration: 'none', textAlign: 'center',
-              }}>Sign In</Link>
-              <Link to="/register" style={{
-                padding: '13px', borderRadius: '10px',
-                background: 'linear-gradient(135deg, #C9A050, #E5C97A)',
-                color: '#0A0A0A', fontWeight: 600,
-                textDecoration: 'none', textAlign: 'center',
-              }}>Get Started</Link>
-            </div>
+            {isDashboard ? (
+              <Sidebar isMobile onClose={() => setOpen(false)} />
+            ) : (
+              <>
+                {navLinks.map(link => (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    style={{
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                      padding: '14px 16px', borderRadius: '10px',
+                      color: location.pathname === link.to ? '#C9A050' : '#fff',
+                      background: location.pathname === link.to ? 'rgba(201,160,80,0.1)' : 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${location.pathname === link.to ? 'rgba(201,160,80,0.3)' : 'rgba(255,255,255,0.06)'}`,
+                      textDecoration: 'none', fontWeight: 500,
+                    }}
+                  >
+                    {link.label} <ChevronRight size={16} />
+                  </Link>
+                ))}
+                <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {session ? (
+                    <>
+                      <Link to="/dashboard" style={{
+                        padding: '13px', borderRadius: '10px',
+                        background: 'linear-gradient(135deg, #C9A050, #E5C97A)',
+                        color: '#0A0A0A', fontWeight: 600,
+                        textDecoration: 'none', textAlign: 'center',
+                      }}>Dashboard</Link>
+                      <button onClick={signOut} style={{
+                        padding: '13px', borderRadius: '10px',
+                        border: '1px solid rgba(255,255,255,0.1)', background:'transparent',
+                        color: 'rgba(255,255,255,0.6)', fontWeight: 500, cursor:'pointer'
+                      }}>Logout</button>
+                    </>
+                  ) : (
+                    <>
+                      <Link to="/login" style={{
+                        padding: '13px', borderRadius: '10px',
+                        border: '1px solid rgba(201,160,80,0.4)',
+                        color: '#C9A050', fontWeight: 500,
+                        textDecoration: 'none', textAlign: 'center',
+                      }}>Sign In</Link>
+                      <Link to="/register" style={{
+                        padding: '13px', borderRadius: '10px',
+                        background: 'linear-gradient(135deg, #C9A050, #E5C97A)',
+                        color: '#0A0A0A', fontWeight: 600,
+                        textDecoration: 'none', textAlign: 'center',
+                      }}>Get Started</Link>
+                    </>
+                  )}
+                </div>
+              </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

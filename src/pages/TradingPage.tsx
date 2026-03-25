@@ -1,13 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import { TrendingUp, TrendingDown, AlertTriangle } from 'lucide-react';
+import { TrendingUp, TrendingDown, AlertTriangle, Loader2 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { mockPrices, goldChartData, btcChartData, ethChartData } from '../mock/data';
+import { goldChartData, btcChartData, ethChartData, oilChartData } from '../mock/data';
+import { useMarketData } from '../context/MarketContext';
+import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 
 const tradePairs = [
   { symbol:'GOLD', name:'Gold',    icon:'🥇', color:'#C9A050', data:goldChartData, fee:'0.1%' },
   { symbol:'BTC',  name:'Bitcoin', icon:'₿',  color:'#F7931A', data:btcChartData,  fee:'0.1%' },
   { symbol:'ETH',  name:'Ethereum',icon:'⟠',  color:'#627EEA', data:ethChartData,  fee:'0.1%' },
+  { symbol:'OIL',  name:'Crude Oil',icon:'🛢️', color:'#f97316', data:oilChartData,  fee:'0.1%' },
 ];
 
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -23,22 +27,140 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 };
 
 export default function TradingPage() {
+  const { user } = useAuth();
+  const { prices, loading: marketLoading } = useMarketData();
   const [selectedPair, setSelectedPair] = useState(0);
   const [orderType, setOrderType] = useState<'buy'|'sell'>('buy');
   const [amount, setAmount] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success'|'error', text: string } | null>(null);
+
+  const [wallets, setWallets] = useState<any[]>([]);
+  const [openTrades, setOpenTrades] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchTradingData() {
+      if (!user) return;
+      setIsLoading(true);
+      try {
+        const [wRes, tRes] = await Promise.all([
+          supabase.from('wallets').select('*').eq('user_id', user.id),
+          supabase.from('trades').select('*').eq('user_id', user.id).eq('status', 'open')
+        ]);
+        if (wRes.data) setWallets(wRes.data);
+        if (tRes.data) setOpenTrades(tRes.data);
+      } catch (err) {
+        console.error('Trading fetch error:', err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    fetchTradingData();
+  }, [user]);
 
   const pair = tradePairs[selectedPair];
-  const price = mockPrices[pair.symbol as keyof typeof mockPrices];
+  const price = prices[pair.symbol] || { price: 0, change: 0, changeAmt: 0 };
   const up = price.change >= 0;
-  const total = amount ? (parseFloat(amount) * price.price).toFixed(2) : '0.00';
-  const fee = amount ? (parseFloat(amount) * price.price * 0.001).toFixed(4) : '0.0000';
+  const totalUSD = amount ? (parseFloat(amount) * price.price) : 0;
+  const fee = totalUSD * 0.001;
 
-  const handleSubmit = () => {
-    if (!amount || parseFloat(amount) <= 0) return;
-    setSubmitted(true);
-    setTimeout(() => { setSubmitted(false); setAmount(''); }, 2500);
-  };
+  const usdtWallet = wallets.find(w => w.asset === 'USDT') || { balance: 0 };
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!user || !amount || parseFloat(amount) <= 0) return;
+    
+    setIsSubmitting(true);
+    setMessage(null);
+
+    try {
+      if (orderType === 'buy') {
+        const cost = totalUSD + fee;
+        if (cost > Number(usdtWallet.balance)) {
+          throw new Error('Insufficient USDT balance to cover trade and 0.1% fee');
+        }
+
+        // 1. Create trade
+        const { error: tErr } = await supabase.from('trades').insert({
+          user_id: user.id,
+          type: 'buy',
+          asset: pair.symbol,
+          amount: parseFloat(amount),
+          entry_price: price.price,
+          status: 'open'
+        });
+        if (tErr) throw tErr;
+
+        // 2. Deduct USDT
+        const { error: wErr } = await supabase.from('wallets')
+          .update({ balance: Number(usdtWallet.balance) - cost })
+          .eq('user_id', user.id)
+          .eq('asset', 'USDT');
+        if (wErr) throw wErr;
+
+        setMessage({ type: 'success', text: `Successfully bought ${amount} ${pair.symbol}` });
+      } else {
+        // Simple sell logic: Check if user has an open long position to close
+        const matchingPos = openTrades.find(t => t.asset === pair.symbol && t.type === 'buy');
+        if (!matchingPos) {
+          throw new Error(`You don't have an open ${pair.symbol} long position to sell.`);
+        }
+        await handleCloseTrade(matchingPos.id);
+        setMessage({ type: 'success', text: `Successfully closed ${pair.symbol} position` });
+      }
+
+      // Refresh data
+      const [wRes, tRes] = await Promise.all([
+        supabase.from('wallets').select('*').eq('user_id', user.id),
+        supabase.from('trades').select('*').eq('user_id', user.id).eq('status', 'open')
+      ]);
+      if (wRes.data) setWallets(wRes.data);
+      if (tRes.data) setOpenTrades(tRes.data);
+      setAmount('');
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Trade execution failed' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  async function handleCloseTrade(tradeId: string) {
+    if (!user) return;
+    try {
+      const trade = openTrades.find(t => t.id === tradeId);
+      if (!trade) return;
+
+      const currentPrice = prices[trade.asset]?.price || 0;
+      const proceeds = Number(trade.amount) * currentPrice;
+
+      // 1. Close trade
+      await supabase.from('trades').update({ status: 'closed', closed_at: new Date().toISOString() }).eq('id', tradeId);
+      
+      // 2. Add proceeds to USDT wallet
+      const currentUsdt = Number(wallets.find(w => w.asset === 'USDT')?.balance || 0);
+      await supabase.from('wallets').update({ balance: currentUsdt + proceeds }).eq('user_id', user.id).eq('asset', 'USDT');
+
+      // Refresh
+      const [wRes, tRes] = await Promise.all([
+        supabase.from('wallets').select('*').eq('user_id', user.id),
+        supabase.from('trades').select('*').eq('user_id', user.id).eq('status', 'open')
+      ]);
+      if (wRes.data) setWallets(wRes.data);
+      if (tRes.data) setOpenTrades(tRes.data);
+    } catch (err) {
+      console.error('Error closing trade:', err);
+    }
+  }
+
+  if (isLoading || marketLoading) {
+    return (
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', flexDirection:'column', gap:'16px' }}>
+        <Loader2 size={40} color="#C9A050" className="spin" />
+        <div style={{ color:'rgba(255,255,255,0.4)', fontSize:'14px' }}>Connecting to liquidity providers...</div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ paddingTop:'92px', minHeight:'100vh', padding:'92px 24px 60px', background:'#0A0A0A' }}>
@@ -55,11 +177,11 @@ export default function TradingPage() {
           {/* Live price strip */}
           <div style={{ display:'flex', gap:'12px', flexWrap:'wrap' }}>
             {tradePairs.map(p => {
-              const pr = mockPrices[p.symbol as keyof typeof mockPrices];
+              const pr = prices[p.symbol] || { price: 0, change: 0 };
               return (
                 <div key={p.symbol} style={{ fontSize:'13px', color:'rgba(255,255,255,0.5)' }}>
                   <span style={{ color:p.color, fontWeight:600 }}>{p.symbol} </span>
-                  ${pr.price.toLocaleString(undefined,{maximumFractionDigits:2})}
+                  ${pr.price.toLocaleString(undefined,{maximumFractionDigits:2, minimumFractionDigits:2})}
                   <span style={{ color:pr.change>=0?'#22c55e':'#ef4444', marginLeft:'6px' }}>
                     {pr.change>=0?'+':''}{pr.change}%
                   </span>
@@ -110,7 +232,7 @@ export default function TradingPage() {
                       padding:'4px 10px', borderRadius:'7px',
                     }}>
                       {up ? <TrendingUp size={13}/> : <TrendingDown size={13}/>}
-                      {up?'+':''}{price.change}% ({up?'+':''}${Math.abs(price.changeAmt).toLocaleString()})
+                      {up?'+':''}{price.change.toFixed(2)}% ({up?'+':''}${Math.abs(price.changeAmt).toLocaleString(undefined,{maximumFractionDigits:2})})
                     </span>
                   </div>
                 </div>
@@ -143,33 +265,47 @@ export default function TradingPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {[
-                      { asset:'GOLD',type:'buy', size:2.0,  entry:3300.00, mark:3342.50, pnl:85.00, pnlPct:2.58 },
-                      { asset:'BTC', type:'buy', size:0.05, entry:84000,   mark:87420,   pnl:171.02,pnlPct:4.07 },
-                      { asset:'ETH', type:'sell',size:0.2,  entry:3300,    mark:3218.7,  pnl:16.26, pnlPct:2.46 },
-                    ].map((pos, i) => (
-                      <tr key={i} className="table-row-hover" style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
-                        <td style={{ padding:'11px 10px', fontWeight:700 }}>{pos.asset}</td>
-                        <td style={{ padding:'11px 10px' }}>
-                          <span style={{
-                            fontSize:'12px', padding:'2px 10px', borderRadius:'5px', fontWeight:600, textTransform:'capitalize',
-                            background:pos.type==='buy'?'rgba(34,197,94,0.1)':'rgba(0,229,255,0.1)',
-                            color:pos.type==='buy'?'#22c55e':'#00E5FF',
-                          }}>{pos.type}</span>
-                        </td>
-                        <td style={{ padding:'11px 10px', fontSize:'13px', color:'rgba(255,255,255,0.7)' }}>{pos.size}</td>
-                        <td style={{ padding:'11px 10px', fontSize:'13px' }}>${pos.entry.toLocaleString()}</td>
-                        <td style={{ padding:'11px 10px', fontSize:'13px' }}>${pos.mark.toLocaleString()}</td>
-                        <td style={{ padding:'11px 10px', color:'#22c55e', fontWeight:700, fontSize:'13px' }}>+${pos.pnl} ({pos.pnlPct}%)</td>
-                        <td style={{ padding:'11px 10px' }}>
-                          <button style={{
-                            padding:'5px 12px', borderRadius:'6px', fontSize:'12px', fontWeight:600,
-                            background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)',
-                            color:'#ef4444', cursor:'pointer',
-                          }}>Close</button>
-                        </td>
-                      </tr>
-                    ))}
+                    {openTrades.map((pos) => {
+                       const currentPrice = prices[pos.asset]?.price || 0;
+                       const pnl = (currentPrice - Number(pos.entry_price)) * Number(pos.amount);
+                       const pnlPct = (pnl / (Number(pos.entry_price) * Number(pos.amount))) * 100;
+                       const isUp = pnl >= 0;
+
+                       return (
+                        <tr key={pos.id} className="table-row-hover" style={{ borderBottom:'1px solid rgba(255,255,255,0.03)' }}>
+                          <td style={{ padding:'11px 10px', fontWeight:700 }}>{pos.asset}</td>
+                          <td style={{ padding:'11px 10px' }}>
+                            <span style={{
+                              fontSize:'12px', padding:'2px 10px', borderRadius:'5px', fontWeight:600, textTransform:'capitalize',
+                              background:pos.type==='buy'?'rgba(34,197,94,0.1)':'rgba(0,229,255,0.1)',
+                              color:pos.type==='buy'?'#22c55e':'#00E5FF',
+                            }}>{pos.type}</span>
+                          </td>
+                          <td style={{ padding:'11px 10px', fontSize:'13px', color:'rgba(255,255,255,0.7)' }}>{pos.amount}</td>
+                          <td style={{ padding:'11px 10px', fontSize:'13px' }}>${Number(pos.entry_price).toLocaleString(undefined, { maximumFractionDigits:2 })}</td>
+                          <td style={{ padding:'11px 10px', fontSize:'13px' }}>${currentPrice.toLocaleString(undefined, { maximumFractionDigits:2 })}</td>
+                          <td style={{ padding:'11px 10px', color: isUp ? '#22c55e' : '#ef4444', fontWeight:700, fontSize:'13px' }}>
+                            {isUp?'+':''}${pnl.toLocaleString(undefined, { maximumFractionDigits:2 })} ({pnlPct.toFixed(2)}%)
+                          </td>
+                          <td style={{ padding:'11px 10px' }}>
+                            <button 
+                              onClick={() => handleCloseTrade(pos.id)}
+                              style={{
+                                padding:'5px 12px', borderRadius:'6px', fontSize:'12px', fontWeight:600,
+                                background:'rgba(239,68,68,0.1)', border:'1px solid rgba(239,68,68,0.3)',
+                                color:'#ef4444', cursor:'pointer',
+                              }}
+                            >Close</button>
+                          </td>
+                        </tr>
+                      )})}
+                      {openTrades.length === 0 && (
+                        <tr>
+                          <td colSpan={7} style={{ padding:'32px', textAlign:'center', color:'rgba(255,255,255,0.3)', fontSize:'14px' }}>
+                            No open positions.
+                          </td>
+                        </tr>
+                      )}
                   </tbody>
                 </table>
               </div>
@@ -246,8 +382,9 @@ export default function TradingPage() {
               }}>
                 {[
                   { label:'Mark Price', value:`$${price.price.toLocaleString(undefined,{minimumFractionDigits:2})}` },
-                  { label:'Estimated Total', value:`$${parseFloat(total).toLocaleString(undefined,{minimumFractionDigits:2})}` },
-                  { label:'Fee (0.1%)', value:`$${parseFloat(fee).toFixed(4)}` },
+                  { label:'Estimated Total', value:`$${totalUSD.toLocaleString(undefined,{minimumFractionDigits:2})}` },
+                  { label:'Fee (0.1%)', value:`$${fee.toFixed(4)}` },
+                  { label:'Available Balance', value:`$${Number(usdtWallet.balance).toLocaleString(undefined, { minimumFractionDigits:2 })} USDT` },
                 ].map(row => (
                   <div key={row.label} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0' }}>
                     <span style={{ fontSize:'12px', color:'rgba(255,255,255,0.45)' }}>{row.label}</span>
@@ -256,18 +393,31 @@ export default function TradingPage() {
                 ))}
               </div>
 
+              {message && (
+                <div style={{
+                  padding:'10px 14px', borderRadius:'8px', marginBottom:'16px', fontSize:'13px',
+                  background: message.type==='success' ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                  border: `1px solid ${message.type==='success' ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`,
+                  color: message.type==='success' ? '#22c55e' : '#ef4444'
+                }}>
+                  {message.text}
+                </div>
+              )}
+
               {/* Submit */}
               <button
+                disabled={isSubmitting}
                 onClick={handleSubmit}
                 style={{
                   width:'100%', padding:'14px', borderRadius:'11px',
-                  background: submitted ? '#22c55e' : (orderType==='buy' ? 'linear-gradient(135deg,#16a34a,#22c55e)' : 'linear-gradient(135deg,#b91c1c,#ef4444)'),
+                  background: isSubmitting ? 'rgba(255,255,255,0.1)' : (orderType==='buy' ? 'linear-gradient(135deg,#16a34a,#22c55e)' : 'linear-gradient(135deg,#b91c1c,#ef4444)'),
                   border:'none', color:'#fff', fontWeight:700, fontSize:'15px',
-                  cursor:'pointer', transition:'all 0.3s',
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer', transition:'all 0.3s',
                   boxShadow: orderType==='buy' ? '0 0 20px rgba(34,197,94,0.3)' : '0 0 20px rgba(239,68,68,0.3)',
+                  opacity: isSubmitting ? 0.7 : 1,
                 }}
               >
-                {submitted ? '✓ Order Placed!' : `${orderType === 'buy' ? '↑ Buy' : '↓ Sell'} ${pair.symbol}`}
+                {isSubmitting ? 'Executing Order...' : `${orderType === 'buy' ? '↑ Buy' : '↓ Sell'} ${pair.symbol}`}
               </button>
             </div>
 
