@@ -154,7 +154,9 @@ export default function DashboardPage() {
           {/* Welcome */}
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'12px' }}>
             <div>
-              <h1 style={{ fontSize:'26px', fontWeight:800, marginBottom:'4px' }}>Welcome back 👋</h1>
+              <h1 style={{ fontSize: '26px', fontWeight: 800, marginBottom: '4px' }}>
+                Welcome back, {user?.user_metadata?.full_name?.split(' ')[0] || 'User'}
+              </h1>
               <p style={{ color:'rgba(255,255,255,0.4)', fontSize:'14px' }}>Here's your portfolio overview for today.</p>
             </div>
             <div style={{ display:'flex', gap:'10px' }}>
