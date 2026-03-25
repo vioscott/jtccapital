@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { TrendingUp, Mail, Shield, Globe, MessageCircle, Send, Rss } from 'lucide-react';
+import { Mail, Shield, Globe, MessageCircle, Send, Rss } from 'lucide-react';
+import jtcLogo from '../../assets/images/logos/jtc_logo_full.png';
 
 const footerLinks = {
   Platform: [
@@ -46,18 +47,8 @@ export default function Footer() {
         }}>
           {/* Brand column */}
           <div>
-            <Link to="/" style={{ display:'flex', alignItems:'center', gap:'10px', textDecoration:'none', marginBottom:'16px' }}>
-              <div style={{
-                width:'36px', height:'36px', borderRadius:'9px',
-                background:'linear-gradient(135deg, #C9A050, #E5C97A)',
-                display:'flex', alignItems:'center', justifyContent:'center',
-              }}>
-                <TrendingUp size={18} color="#0A0A0A" strokeWidth={2.5} />
-              </div>
-              <span style={{ fontSize:'18px', fontWeight:700 }}>
-                <span style={{ color:'#C9A050' }}>JTC</span>
-                <span style={{ color:'#fff' }}> Invest</span>
-              </span>
+            <Link to="/" style={{ display:'block', textDecoration:'none', marginBottom:'16px' }}>
+              <img src={jtcLogo} alt="JTC Invest" style={{ height:'54px', width:'auto', display:'block' }} />
             </Link>
             <p style={{ color:'rgba(255,255,255,0.45)', fontSize:'13px', lineHeight:'1.7', marginBottom:'20px' }}>
               A next-generation investment platform for Gold and Crypto assets. Trade smarter, grow faster.
