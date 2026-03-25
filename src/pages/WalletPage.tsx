@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowDownLeft, ArrowUpRight, Copy, Check, ExternalLink, AlertCircle } from 'lucide-react';
 import { mockWallets, mockTransactions } from '../mock/data';
 
-const assetColors: Record<string, string> = { BTC:'#F7931A', ETH:'#627EEA', USDT:'#26A17B', GOLD:'#C9A050' };
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);

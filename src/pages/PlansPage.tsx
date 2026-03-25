@@ -1,11 +1,9 @@
-import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Check, AlertTriangle, ArrowRight, Zap, TrendingUp, Star } from 'lucide-react';
 import { mockPlans } from '../mock/data';
 
 export default function PlansPage() {
-  const [active, setActive] = useState<string | null>(null);
 
   return (
     <div style={{ paddingTop:'100px', padding:'100px 24px 60px' }}>
@@ -44,7 +42,6 @@ export default function PlansPage() {
         }}>
           {mockPlans.map((plan, i) => {
             const isPopular = plan.popular;
-            const isActive = active === plan.id;
             const accentColor = plan.tier === 1 ? '#888' : plan.tier === 2 ? '#C9A050' : '#00E5FF';
             return (
               <motion.div
@@ -85,7 +82,7 @@ export default function PlansPage() {
                   </div>
                   <div>
                     <div style={{ fontSize:'20px', fontWeight:800, color:accentColor }}>{plan.name}</div>
-                    <div style={{ fontSize:'12px', color:'rgba(255,255,255,0.4)' }}>{plan.duration_days}-day lock period</div>
+                    <div style={{ fontSize:'12px', color:'rgba(255,255,255,0.4)' }}>{plan.duration}-day lock period</div>
                   </div>
                 </div>
 

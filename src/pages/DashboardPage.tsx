@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { TrendingUp, TrendingDown, Wallet, ArrowUpRight, ArrowDownLeft, Activity, DollarSign, BarChart2 } from 'lucide-react';
+import { TrendingUp, Wallet, ArrowUpRight, ArrowDownLeft, Activity, DollarSign, BarChart2 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { mockPortfolio, mockTrades, mockTransactions, mockPrices } from '../mock/data';
 
