@@ -1,9 +1,9 @@
 import { motion } from 'framer-motion';
 import { Shield, Eye, Lock, Globe, Award, Users, FileText, CheckCircle } from 'lucide-react';
 
-import alexandraImg from '../assets/team/alexandra_ceo.png';
+import alexandraImg from '../assets/team/alexandra_ceo.jpeg';
 import davidImg from '../assets/team/david_cto.png';
-import priyaImg from '../assets/team/priya_compliance.png';
+import priyaImg from '../assets/team/priya_compliance.jpeg';
 import marcusImg from '../assets/team/marcus_trading.png';
 
 const mission = [
@@ -22,8 +22,8 @@ const compliance = [
 ];
 
 const team = [
-  { name: 'Alexandra J.', role: 'CEO & Co-founder', img: alexandraImg },
-  { name: 'David C.', role: 'CTO & Co-founder', img: davidImg },
+  { name: 'Alexandra J.', role: 'CTO & Co-founder', img: alexandraImg },
+  { name: 'David C.', role: 'CEO & Co-founder', img: davidImg },
   { name: 'Priya M.', role: 'Head of Compliance', img: priyaImg },
   { name: 'Marcus W.', role: 'Head of Trading Systems', img: marcusImg },
 ];
@@ -165,13 +165,18 @@ export default function AboutPage() {
                 }}
                 whileHover={{ borderColor: 'rgba(201,160,80,0.4)', boxShadow: '0 0 20px rgba(201,160,80,0.15)' }}
               >
-                <div style={{ 
-                  width: '100px', height: '100px', borderRadius: '50%', 
-                  overflow: 'hidden', margin: '0 auto 16px', 
+                <div style={{
+                  width: '100px', height: '100px', borderRadius: '50%',
+                  overflow: 'hidden', margin: '0 auto 16px',
                   border: '2px solid rgba(201,160,80,0.3)',
                   background: 'rgba(255,255,255,0.05)'
                 }}>
-                  <img src={member.img} alt={member.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img
+                    src={member.img}
+                    alt={member.name}
+                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                    loading="lazy"
+                  />
                 </div>
                 <div style={{ fontWeight: 700, fontSize: '16px', marginBottom: '4px' }}>{member.name}</div>
                 <div style={{ fontSize: '13px', color: '#C9A050' }}>{member.role}</div>

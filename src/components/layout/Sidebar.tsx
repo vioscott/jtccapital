@@ -9,6 +9,8 @@ import {
   ChevronRight
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { useState } from 'react';
+import ConfirmModal from '../ui/ConfirmModal';
 
 const dashboardLinks = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard },
@@ -25,6 +27,7 @@ interface SidebarProps {
 
 export default function Sidebar({ onClose, isMobile }: SidebarProps) {
   const location = useLocation();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { signOut } = useAuth();
 
   const content = (
@@ -62,7 +65,7 @@ export default function Sidebar({ onClose, isMobile }: SidebarProps) {
       {/* Logout at bottom */}
       <div style={{ marginTop: 'auto', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '20px' }}>
         <button
-          onClick={() => { signOut(); onClose?.(); }}
+          onClick={() => setShowLogoutConfirm(true)}
           style={{
             width: '100%', display: 'flex', alignItems: 'center', gap: '12px',
             padding: '12px 16px', borderRadius: '12px',
@@ -86,6 +89,20 @@ export default function Sidebar({ onClose, isMobile }: SidebarProps) {
       zIndex: 90, display: 'flex', flexDirection: 'column',
     }}>
       {content}
+      
+      <ConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={() => {
+          signOut();
+          onClose?.();
+          setShowLogoutConfirm(false);
+        }}
+        title="Confirm Logout"
+        message="Are you sure you want to log out of your session?"
+        confirmLabel="Logout"
+        variant="danger"
+      />
     </aside>
   );
 }

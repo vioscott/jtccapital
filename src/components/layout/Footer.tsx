@@ -101,7 +101,7 @@ export default function Footer() {
         }}>
           <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '11px', lineHeight: '1.7', margin: 0 }}>
             <strong style={{ color: 'rgba(201,160,80,0.7)' }}>Risk Disclaimer: </strong>
-            Trading and investing in gold and cryptocurrencies involves significant risk of loss and is not suitable for all investors.
+            Trading and investing in cryptocurrencies involves significant risk of loss and is not suitable for all investors.
             Past performance is not indicative of future results. You may lose all of your invested capital. Please read our full risk disclaimer before trading.
           </p>
         </div>
@@ -109,7 +109,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
           <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '13px', margin: 0 }}>
-            © {new Date().getFullYear()} JTC Invest. All rights reserved.
+            © {new Date().getFullYear()} JTC Capital Holdings. All rights reserved.
           </p>
           <div style={{ display: 'flex', gap: '12px' }}>
             {socials.map(({ icon: Icon, href }, i) => (

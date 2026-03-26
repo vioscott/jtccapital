@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 interface AuthContextType {
   session: Session | null;
   user: User | null;
+  role: string | null;
   isLoading: boolean;
   signOut: () => Promise<void>;
 }
@@ -14,21 +15,44 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
+  const [role, setRole] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  async function fetchRole(userId: string) {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', userId)
+        .single();
+      setRole(data?.role ?? 'user');
+    } catch (e) {
+      setRole('user');
+    }
+  }
 
   useEffect(() => {
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
+      if (session?.user) {
+        await fetchRole(session.user.id);
+      }
       setIsLoading(false);
     });
 
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (_event, session) => {
+        setIsLoading(true);
         setSession(session);
         setUser(session?.user ?? null);
+        if (session?.user) {
+          await fetchRole(session.user.id);
+        } else {
+          setRole(null);
+        }
         setIsLoading(false);
       }
     );
@@ -38,10 +62,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    setRole(null);
   };
 
   return (
-    <AuthContext.Provider value={{ session, user, isLoading, signOut }}>
+    <AuthContext.Provider value={{ session, user, role, isLoading, signOut }}>
       {children}
     </AuthContext.Provider>
   );

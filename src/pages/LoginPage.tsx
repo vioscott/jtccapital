@@ -14,13 +14,24 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
     
     if (error) {
       setError(error.message);
-    } else {
-      navigate('/dashboard');
+    } else if (data.user) {
+      // Check role for redirect
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .single();
+      
+      if (profile?.role === 'admin') {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/dashboard');
+      }
     }
   };
 
@@ -94,6 +105,15 @@ export default function LoginPage() {
           Don't have an account?{' '}
           <Link to="/register" style={{ color:'#C9A050', textDecoration:'none', fontWeight:500 }}>Sign Up</Link>
         </p>
+
+        <div style={{ marginTop: '32px', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '20px' }}>
+          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Internal Access Only
+          </p>
+          <Link to="/login" style={{ fontSize: '12px', color: 'rgba(201,160,80,0.5)', textDecoration: 'none', fontWeight: 600 }}>
+            Staff Access Portal
+          </Link>
+        </div>
       </motion.div>
     </div>
   );

@@ -4,6 +4,7 @@ import { TrendingUp, TrendingDown, RefreshCw, BarChart2, Clock } from 'lucide-re
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { goldChartData, btcChartData, ethChartData, oilChartData, generateChartData } from '../mock/data';
 import { useMarketData, type AssetPrice } from '../context/MarketContext';
+import Skeleton from '../components/ui/Skeleton';
 
 const assets = [
   { symbol:'GOLD', name:'Gold (XAU/USD)',  icon:'🥇', data: goldChartData, color:'#C9A050', mktCap:'$13.9T', vol24h:'$214B' },
@@ -14,7 +15,16 @@ const assets = [
 
 const timeframes = ['1H','4H','1D','1W','1M'];
 
-function PriceCard({ asset, isSelected, onClick, priceData }: { asset: typeof assets[0]; isSelected: boolean; onClick: () => void; priceData: AssetPrice }) {
+function PriceCard({ asset, isSelected, onClick, priceData, loading }: { asset: typeof assets[0]; isSelected: boolean; onClick: () => void; priceData: AssetPrice; loading?: boolean }) {
+  if (loading) {
+    return (
+      <div style={{ background: '#111', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', padding: '20px' }}>
+        <Skeleton width="60%" height="20px" style={{ marginBottom: '12px' }} />
+        <Skeleton width="80%" height="24px" style={{ marginBottom: '8px' }} />
+        <Skeleton width="40%" height="14px" />
+      </div>
+    );
+  }
   const p = priceData || { price:0, change:0, changeAmt:0 };
   const up = p.change >= 0;
   return (
@@ -124,7 +134,7 @@ export default function MarketsPage() {
         {/* Asset cards */}
         <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(220px, 1fr))', gap:'16px', marginBottom:'32px' }}>
           {assets.map((a, i) => (
-            <PriceCard key={a.symbol} asset={a} isSelected={selected === i} onClick={() => setSelected(i)} priceData={prices[a.symbol]} />
+            <PriceCard key={a.symbol} asset={a} isSelected={selected === i} onClick={() => setSelected(i)} priceData={prices[a.symbol]} loading={loading} />
           ))}
         </div>
 

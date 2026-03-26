@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowDownLeft, ArrowUpRight, Copy, Check, ExternalLink, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Copy, Check, ExternalLink, AlertCircle } from 'lucide-react';
 import { useMarketData } from '../context/MarketContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+import Skeleton from '../components/ui/Skeleton';
 
 const ASSET_COLORS: Record<string, string> = {
   'BTC': '#F7931A',
@@ -133,14 +134,7 @@ export default function WalletPage() {
     }
   }
 
-  if (isLoading || marketLoading) {
-    return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', flexDirection: 'column', gap: '16px' }}>
-        <Loader2 size={40} color="#C9A050" className="spin" />
-        <div style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>Loading wallet assets...</div>
-      </div>
-    );
-  }
+  // Removed full-screen loader to allow skeletons
 
   return (
     <div style={{ paddingTop: '92px', minHeight: '100vh', padding: '92px 24px 60px' }}>
@@ -154,7 +148,15 @@ export default function WalletPage() {
 
         {/* Wallet balances */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '32px' }}>
-          {wallets.map(w => {
+          {(isLoading || marketLoading) ? (
+            [1,2,3,4].map(i => (
+              <div key={i} style={{ background: '#111', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', padding: '18px' }}>
+                <Skeleton width="34px" height="34px" borderRadius="8px" style={{ marginBottom: '12px' }} />
+                <Skeleton width="100px" height="22px" style={{ marginBottom: '6px' }} />
+                <Skeleton width="60px" height="14px" />
+              </div>
+            ))
+          ) : wallets.map(w => {
             const color = ASSET_COLORS[w.asset] || '#ccc';
             const livePrice = prices[w.asset]?.price || (w.asset === 'USDT' ? 1 : 0);
             const liveUsdValue = Number(w.balance) * livePrice;
@@ -373,9 +375,9 @@ export default function WalletPage() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {[
-                  { label: 'Processing Time', value: 'Up to 24 hours' },
+                  { label: 'Processing Time', value: 'Instant - 24 hours' },
                   { label: 'Withdrawal Fee', value: selectedAsset === 'BTC' ? '0.0005 BTC' : selectedAsset === 'ETH' ? '0.003 ETH' : '1 USDT' },
-                  { label: 'Min. Withdrawal', value: selectedAsset === 'BTC' ? '0.001 BTC' : selectedAsset === 'ETH' ? '0.01 ETH' : '$10 USDT' },
+                  { label: 'Min. Withdrawal', value: selectedAsset === 'BTC' ? '0.001 BTC' : selectedAsset === 'ETH' ? '0.01 ETH' : '$500 USDT' },
                   { label: 'Manual Review', value: 'Required above $10,000' },
                 ].map(row => (
                   <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px' }}>

@@ -16,6 +16,13 @@ import TradingPage    from './pages/TradingPage';
 import SupportPage    from './pages/SupportPage';
 import LoginPage      from './pages/LoginPage';
 import RegisterPage   from './pages/RegisterPage';
+import AdminRoute     from './components/auth/AdminRoute';
+import AdminLayout    from './components/layout/AdminLayout';
+
+import AdminDashboardPage    from './pages/admin/AdminDashboardPage';
+import AdminUsersPage        from './pages/admin/AdminUsersPage';
+import AdminTransactionsPage from './pages/admin/AdminTransactionsPage';
+import AdminTradesPage       from './pages/admin/AdminTradesPage';
 
 // Page-level transition wrapper
 function PageTransition({ children }: { children: React.ReactNode }) {
@@ -44,11 +51,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 function AppContent() {
   const location = useLocation();
   const isDashboard = ['/dashboard', '/wallet', '/trading'].some(path => location.pathname.startsWith(path));
-  const showFooter = !isDashboard;
+  const isAdmin = location.pathname.startsWith('/admin');
+  const showFooter = !isDashboard && !isAdmin;
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', flexDirection: 'column' }}>
-      <Navbar />
+      {!isAdmin && <Navbar />}
       <div style={{ display: 'flex', flex: 1 }}>
         {isDashboard && (
           <div className="hidden-mobile">
@@ -57,7 +65,7 @@ function AppContent() {
         )}
         <main 
           style={{ flex: 1, width: '100%' }} 
-          className={isDashboard ? 'dashboard-main-content' : ''}
+          className={isDashboard || isAdmin ? 'dashboard-main-content' : ''}
         >
           <AnimatePresence mode="wait">
             <Routes location={location} key={location.pathname}>
@@ -71,6 +79,15 @@ function AppContent() {
               <Route path="/trading"   element={<ProtectedRoute><PageTransition><TradingPage /></PageTransition></ProtectedRoute>} />
               <Route path="/support"   element={<PageTransition><SupportPage /></PageTransition>} />
               
+              {/* Admin Routes */}
+              <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
+                <Route index element={<Navigate to="/admin/dashboard" replace />} />
+                <Route path="dashboard"    element={<PageTransition><AdminDashboardPage /></PageTransition>} />
+                <Route path="users"        element={<PageTransition><AdminUsersPage /></PageTransition>} />
+                <Route path="transactions" element={<PageTransition><AdminTransactionsPage /></PageTransition>} />
+                <Route path="trades"       element={<PageTransition><AdminTradesPage /></PageTransition>} />
+              </Route>
+
               <Route path="/login"    element={<PageTransition><LoginPage /></PageTransition>} />
               <Route path="/register" element={<PageTransition><RegisterPage /></PageTransition>} />
               <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />

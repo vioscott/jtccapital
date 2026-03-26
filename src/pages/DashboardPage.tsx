@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { TrendingUp, Wallet, ArrowUpRight, ArrowDownLeft, Activity, DollarSign, BarChart2, Loader2 } from 'lucide-react';
+import { TrendingUp, Wallet, ArrowUpRight, ArrowDownLeft, Activity, DollarSign, BarChart2 } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useMarketData } from '../context/MarketContext';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
+
+import Skeleton from '../components/ui/Skeleton';
 
 const COLORS = ['#C9A050', '#F7931A', '#627EEA', '#f97316', '#26A17B'];
 
@@ -114,14 +116,7 @@ export default function DashboardPage() {
 
   const pieData = liveAssets.map((a: any) => ({ name:a.asset, value: liveTotalValue > 0 ? (a.value/liveTotalValue)*100 : 0 }));
 
-  if (isLoading || marketLoading) {
-    return (
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'center', minHeight:'100vh', flexDirection:'column', gap:'16px' }}>
-        <Loader2 size={40} color="#C9A050" className="spin" />
-        <div style={{ color:'rgba(255,255,255,0.4)', fontSize:'14px' }}>Loading your dashboard...</div>
-      </div>
-    );
-  }
+  // Removed full-screen loader to allow skeletons
 
   return (
     <div style={{ paddingTop:'92px', minHeight:'100vh' }}>
@@ -208,9 +203,11 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div style={{ fontSize:'22px', fontWeight:800, color:card.highlight?'#C9A050':'#fff', marginBottom:'4px' }} className="stat-value">
-                  {card.value}
+                  {(isLoading || marketLoading) ? <Skeleton width="120px" height="28px" /> : card.value}
                 </div>
-                <div style={{ fontSize:'12px', color:card.subColor }}>{card.sub}</div>
+                <div style={{ fontSize:'12px', color:card.subColor }}>
+                  {(isLoading || marketLoading) ? <Skeleton width="80px" height="14px" style={{ marginTop: '4px' }} /> : card.sub}
+                </div>
               </motion.div>
             ))}
           </div>
@@ -225,7 +222,16 @@ export default function DashboardPage() {
                 <div style={{ fontSize:'11px', color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.08em' }}>Allocation</div>
                 <div style={{ fontSize:'11px', color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.08em', textAlign:'right' }}>Balance</div>
                 <div style={{ fontSize:'11px', color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.08em', textAlign:'right' }}>Value</div>
-                {liveAssets.map((a, i) => (
+                {(isLoading || marketLoading) ? (
+                  [1,2,3,4].map(i => (
+                    <div key={i} style={{ display:'contents' }}>
+                      <Skeleton height="16px" width="60px" />
+                      <Skeleton height="16px" />
+                      <Skeleton height="16px" width="80px" style={{ marginLeft: 'auto' }} />
+                      <Skeleton height="16px" width="100px" style={{ marginLeft: 'auto' }} />
+                    </div>
+                  ))
+                ) : liveAssets.map((a, i) => (
                   <div key={a.asset} style={{ display:'contents' }}>
                     <div key={`${a.asset}-icon`} style={{ display:'flex', alignItems:'center', gap:'8px' }}>
                       <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:COLORS[i] }} />

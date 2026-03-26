@@ -5,6 +5,7 @@ import { Menu, X, ChevronRight, Bell, User, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import jtcLogo from '../../assets/images/logos/jtc_logo_full.png';
 import Sidebar from './Sidebar';
+import ConfirmModal from '../ui/ConfirmModal';
 
 const navLinks = [
   { label: 'Markets', to: '/markets' },
@@ -16,6 +17,7 @@ const navLinks = [
 export default function Navbar() {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const location = useLocation();
   const { session, signOut } = useAuth();
 
@@ -45,7 +47,12 @@ export default function Navbar() {
         <div style={{ maxWidth: '1280px', margin: '0 auto', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '72px' }}>
           {/* Logo */}
           <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
-            <img src={jtcLogo} alt="JTC Invest" style={{ height: '62px', width: 'auto' }} />
+            <img 
+              src={jtcLogo} 
+              alt="JTC Invest" 
+              style={{ height: '62px', width: 'auto' }} 
+              loading="lazy"
+            />
           </Link>
 
           {/* Desktop Nav */}
@@ -84,14 +91,14 @@ export default function Navbar() {
                   background: 'linear-gradient(135deg, #C9A050, #E5C97A)',
                   color: '#0A0A0A', fontWeight: 600, fontSize: '14px',
                   textDecoration: 'none',
-                }}>
+                }} className="hidden-mobile">
                   <User size={16} /> Dashboard
                 </Link>
-                <button onClick={signOut} style={{
+                <button onClick={() => setShowLogoutConfirm(true)} style={{
                   display: 'flex', alignItems: 'center', gap: '6px',
                   background: 'none', border:'1px solid rgba(255,255,255,0.1)',
                   borderRadius: '10px', padding: '8px 14px', color: 'rgba(255,255,255,0.6)', cursor: 'pointer',
-                }}>
+                }} className="hidden-mobile">
                   <LogOut size={16} /> Logout
                 </button>
               </>
@@ -112,7 +119,7 @@ export default function Navbar() {
                   color: '#0A0A0A', fontWeight: 600, fontSize: '14px',
                   textDecoration: 'none', whiteSpace: 'nowrap',
                   boxShadow: '0 0 20px rgba(201,160,80,0.3)',
-                }}>
+                }} className="hidden-mobile">
                   Get Started <ChevronRight size={15} />
                 </Link>
               </>
@@ -179,7 +186,7 @@ export default function Navbar() {
                         color: '#0A0A0A', fontWeight: 600,
                         textDecoration: 'none', textAlign: 'center',
                       }}>Dashboard</Link>
-                      <button onClick={signOut} style={{
+                      <button onClick={() => setShowLogoutConfirm(true)} style={{
                         padding: '13px', borderRadius: '10px',
                         border: '1px solid rgba(255,255,255,0.1)', background:'transparent',
                         color: 'rgba(255,255,255,0.6)', fontWeight: 500, cursor:'pointer'
@@ -212,6 +219,19 @@ export default function Navbar() {
         @media (min-width: 768px) { .hidden-mobile { display: flex !important; } .show-mobile { display: none !important; } }
         @media (max-width: 767px) { .hidden-mobile { display: none !important; } .show-mobile { display: flex !important; } }
       `}</style>
+
+      <ConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={() => {
+          signOut();
+          setShowLogoutConfirm(false);
+        }}
+        title="Confirm Logout"
+        message="Are you sure you want to log out? You will need to sign in again to access your portfolio."
+        confirmLabel="Logout"
+        variant="danger"
+      />
     </>
   );
 }
