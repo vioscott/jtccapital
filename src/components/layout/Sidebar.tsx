@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Wallet, 
@@ -27,6 +27,7 @@ interface SidebarProps {
 
 export default function Sidebar({ onClose, isMobile }: SidebarProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { signOut } = useAuth();
 
@@ -93,10 +94,11 @@ export default function Sidebar({ onClose, isMobile }: SidebarProps) {
       <ConfirmModal
         isOpen={showLogoutConfirm}
         onClose={() => setShowLogoutConfirm(false)}
-        onConfirm={() => {
-          signOut();
+        onConfirm={async () => {
+          await signOut();
           onClose?.();
           setShowLogoutConfirm(false);
+          navigate('/');
         }}
         title="Confirm Logout"
         message="Are you sure you want to log out of your session?"

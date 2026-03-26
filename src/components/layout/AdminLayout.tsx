@@ -1,4 +1,4 @@
-import { Link, useLocation, Outlet } from 'react-router-dom';
+import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   Users, 
@@ -22,6 +22,7 @@ const adminNav = [
 
 export default function AdminLayout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { signOut } = useAuth();
 
@@ -168,9 +169,10 @@ export default function AdminLayout() {
       <ConfirmModal
         isOpen={showLogoutConfirm}
         onClose={() => setShowLogoutConfirm(false)}
-        onConfirm={() => {
-          signOut();
+        onConfirm={async () => {
+          await signOut();
           setShowLogoutConfirm(false);
+          navigate('/login');
         }}
         title="Admin Logout"
         message="You are about to log out of the administrative portal. Are you sure?"

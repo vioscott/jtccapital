@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, ChevronRight, Bell, User, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -19,6 +19,7 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const { session, signOut } = useAuth();
 
   const isDashboard = ['/dashboard', '/wallet', '/trading'].some(path => location.pathname.startsWith(path));
@@ -223,9 +224,10 @@ export default function Navbar() {
       <ConfirmModal
         isOpen={showLogoutConfirm}
         onClose={() => setShowLogoutConfirm(false)}
-        onConfirm={() => {
-          signOut();
+        onConfirm={async () => {
+          await signOut();
           setShowLogoutConfirm(false);
+          navigate('/');
         }}
         title="Confirm Logout"
         message="Are you sure you want to log out? You will need to sign in again to access your portfolio."

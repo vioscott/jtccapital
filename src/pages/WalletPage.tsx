@@ -149,7 +149,7 @@ export default function WalletPage() {
         {/* Wallet balances */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '32px' }}>
           {(isLoading || marketLoading) ? (
-            [1,2,3,4].map(i => (
+            [1, 2, 3, 4].map(i => (
               <div key={i} style={{ background: '#111', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '14px', padding: '18px' }}>
                 <Skeleton width="34px" height="34px" borderRadius="8px" style={{ marginBottom: '12px' }} />
                 <Skeleton width="100px" height="22px" style={{ marginBottom: '6px' }} />
@@ -376,8 +376,8 @@ export default function WalletPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {[
                   { label: 'Processing Time', value: 'Instant - 24 hours' },
-                  { label: 'Withdrawal Fee', value: selectedAsset === 'BTC' ? '0.0005 BTC' : selectedAsset === 'ETH' ? '0.003 ETH' : '1 USDT' },
-                  { label: 'Min. Withdrawal', value: selectedAsset === 'BTC' ? '0.001 BTC' : selectedAsset === 'ETH' ? '0.01 ETH' : '$500 USDT' },
+                  { label: 'Withdrawal Fee', value: selectedAsset === 'BTC' ? '0.0005 BTC' : selectedAsset === 'ETH' ? '0.003 ETH' : '10 USDT' },
+                  { label: 'Min. Withdrawal', value: selectedAsset === 'BTC' ? '0.007 BTC' : selectedAsset === 'ETH' ? '0.23 ETH' : '$500 USDT' },
                   { label: 'Manual Review', value: 'Required above $10,000' },
                 ].map(row => (
                   <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px' }}>

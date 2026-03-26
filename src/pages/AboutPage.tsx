@@ -22,9 +22,9 @@ const compliance = [
 ];
 
 const team = [
-  { name: 'Alexandra J.', role: 'CTO & Co-founder', img: alexandraImg },
+  { name: 'Linda Fakhoury.', role: 'CTO & Co-founder', img: alexandraImg },
   { name: 'David C.', role: 'CEO & Co-founder', img: davidImg },
-  { name: 'Priya M.', role: 'Head of Compliance', img: priyaImg },
+  { name: 'Sarah Coe.', role: 'Head of Compliance', img: priyaImg },
   { name: 'Marcus W.', role: 'Head of Trading Systems', img: marcusImg },
 ];
 
