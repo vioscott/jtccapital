@@ -31,6 +31,13 @@ export default function Sidebar({ onClose, isMobile }: SidebarProps) {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { signOut } = useAuth();
 
+  const handleLogout = async () => {
+    await signOut();
+    setShowLogoutConfirm(false);
+    onClose?.();
+    navigate('/');
+  };
+
   const content = (
     <div style={{
       display: 'flex', flexDirection: 'column', height: '100%',
@@ -63,7 +70,7 @@ export default function Sidebar({ onClose, isMobile }: SidebarProps) {
         })}
       </div>
 
-      {/* Logout at bottom */}
+      {/* Logout button */}
       <div style={{ marginTop: 'auto', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '20px' }}>
         <button
           onClick={() => setShowLogoutConfirm(true)}
@@ -78,6 +85,17 @@ export default function Sidebar({ onClose, isMobile }: SidebarProps) {
           <LogOut size={18} /> Logout
         </button>
       </div>
+
+      {/* ConfirmModal — inside content so it renders in BOTH mobile and desktop */}
+      <ConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={handleLogout}
+        title="Confirm Logout"
+        message="Are you sure you want to log out of your session?"
+        confirmLabel="Logout"
+        variant="danger"
+      />
     </div>
   );
 
@@ -90,21 +108,6 @@ export default function Sidebar({ onClose, isMobile }: SidebarProps) {
       zIndex: 90, display: 'flex', flexDirection: 'column',
     }}>
       {content}
-      
-      <ConfirmModal
-        isOpen={showLogoutConfirm}
-        onClose={() => setShowLogoutConfirm(false)}
-        onConfirm={async () => {
-          await signOut();
-          onClose?.();
-          setShowLogoutConfirm(false);
-          navigate('/');
-        }}
-        title="Confirm Logout"
-        message="Are you sure you want to log out of your session?"
-        confirmLabel="Logout"
-        variant="danger"
-      />
     </aside>
   );
 }

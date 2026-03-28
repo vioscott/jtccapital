@@ -24,6 +24,12 @@ export default function Navbar() {
 
   const isDashboard = ['/dashboard', '/wallet', '/trading'].some(path => location.pathname.startsWith(path));
 
+  const handleLogout = async () => {
+    await signOut();
+    setShowLogoutConfirm(false);
+    navigate('/');
+  };
+
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', onScroll);
@@ -224,11 +230,7 @@ export default function Navbar() {
       <ConfirmModal
         isOpen={showLogoutConfirm}
         onClose={() => setShowLogoutConfirm(false)}
-        onConfirm={async () => {
-          await signOut();
-          setShowLogoutConfirm(false);
-          navigate('/');
-        }}
+        onConfirm={handleLogout}
         title="Confirm Logout"
         message="Are you sure you want to log out? You will need to sign in again to access your portfolio."
         confirmLabel="Logout"

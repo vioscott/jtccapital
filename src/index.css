@@ -213,12 +213,12 @@ body {
   .r-dashboard-layout { flex-direction: row; align-items: flex-start; }
 }
 
-/* Sidebar: full width on mobile, fixed width on desktop */
+/* Sidebar: hidden on mobile, fixed width on desktop */
 .r-sidebar {
-  width: 100%;
+  display: none;
 }
 @media (min-width: 960px) {
-  .r-sidebar { width: 220px; flex-shrink: 0; position: sticky; top: 92px; }
+  .r-sidebar { display: flex; width: 220px; flex-shrink: 0; position: sticky; top: 92px; }
 }
 
 /* Asset / pie chart grid */

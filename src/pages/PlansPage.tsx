@@ -46,12 +46,19 @@ export default function PlansPage() {
 
     try {
       // 1. Create investment
+      const maturesAt = new Date();
+      maturesAt.setDate(maturesAt.getDate() + selectedPlan.duration);
+
       const { error: iErr } = await supabase.from('investments').insert({
         user_id: user.id,
+        plan_id: selectedPlan.id,
         plan_name: selectedPlan.name,
         amount: amt,
+        roi_min: selectedPlan.roiMin,
+        roi_max: selectedPlan.roiMax,
+        duration: selectedPlan.duration,
         status: 'active',
-        start_date: new Date().toISOString()
+        matures_at: maturesAt.toISOString(),
       });
       if (iErr) throw iErr;
 

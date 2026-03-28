@@ -1,10 +1,11 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, X } from 'lucide-react';
+import { AlertTriangle, X, Loader2 } from 'lucide-react';
+import { useState } from 'react';
 
 interface ConfirmModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   title: string;
   message: string;
   confirmLabel?: string;
@@ -22,6 +23,17 @@ export default function ConfirmModal({
   cancelLabel = 'Cancel',
   variant = 'warning'
 }: ConfirmModalProps) {
+  const [confirming, setConfirming] = useState(false);
+
+  const handleConfirm = async () => {
+    setConfirming(true);
+    try {
+      await onConfirm();
+    } finally {
+      setConfirming(false);
+    }
+  };
+
   const getVariantColor = () => {
     switch (variant) {
       case 'danger': return '#ef4444';
@@ -108,16 +120,19 @@ export default function ConfirmModal({
                     {cancelLabel}
                   </button>
                   <button
-                    onClick={onConfirm}
+                    onClick={handleConfirm}
+                    disabled={confirming}
                     style={{
                       flex: 1, padding: '14px', borderRadius: '14px',
                       background: variant === 'danger' ? '#ef4444' : 'linear-gradient(135deg, #C9A050, #E5C97A)',
                       border: 'none', color: variant === 'danger' ? '#fff' : '#0A0A0A', 
-                      fontWeight: 700, fontSize: '14px', cursor: 'pointer',
-                      boxShadow: `0 10px 20px rgba(0,0,0,0.2)`
+                      fontWeight: 700, fontSize: '14px', cursor: confirming ? 'not-allowed' : 'pointer',
+                      boxShadow: `0 10px 20px rgba(0,0,0,0.2)`,
+                      opacity: confirming ? 0.75 : 1,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
                     }}
                   >
-                    {confirmLabel}
+                    {confirming ? <Loader2 size={16} className="spin" /> : confirmLabel}
                   </button>
                 </div>
               </div>

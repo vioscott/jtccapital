@@ -16,6 +16,7 @@ import TradingPage    from './pages/TradingPage';
 import SupportPage    from './pages/SupportPage';
 import LoginPage      from './pages/LoginPage';
 import RegisterPage   from './pages/RegisterPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import AdminRoute     from './components/auth/AdminRoute';
 import AdminLayout    from './components/layout/AdminLayout';
 
@@ -90,6 +91,7 @@ function AppContent() {
 
               <Route path="/login"    element={<PageTransition><LoginPage /></PageTransition>} />
               <Route path="/register" element={<PageTransition><RegisterPage /></PageTransition>} />
+              <Route path="/forgot-password" element={<PageTransition><ForgotPasswordPage /></PageTransition>} />
               <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
             </Routes>
           </AnimatePresence>

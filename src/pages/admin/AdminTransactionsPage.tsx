@@ -6,7 +6,9 @@ import {
   Clock, 
   ArrowDownLeft, 
   ArrowUpRight, 
-  Loader2
+  Loader2,
+  Search,
+  RefreshCw
 } from 'lucide-react';
 
 export default function AdminTransactionsPage() {
@@ -14,6 +16,7 @@ export default function AdminTransactionsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'pending' | 'completed' | 'failed'>('pending');
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     fetchTransactions();
@@ -22,7 +25,7 @@ export default function AdminTransactionsPage() {
   async function fetchTransactions() {
     setLoading(true);
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('transactions')
         .select(`
           *,
@@ -30,6 +33,7 @@ export default function AdminTransactionsPage() {
         `)
         .order('created_at', { ascending: false });
 
+      if (error) console.error('Fetch error:', error);
       if (data) setTransactions(data);
     } catch (err) {
       console.error('Error fetching transactions:', err);
@@ -42,7 +46,6 @@ export default function AdminTransactionsPage() {
     setProcessingId(tx.id);
     try {
       if (tx.type === 'deposit') {
-        // 1. Get current wallet
         const { data: wallet } = await supabase
           .from('wallets')
           .select('balance')
@@ -51,23 +54,19 @@ export default function AdminTransactionsPage() {
           .single();
 
         if (wallet) {
-          // 2. Add funds to wallet
           const { error: wErr } = await supabase
             .from('wallets')
             .update({ balance: Number(wallet.balance) + Number(tx.amount) })
             .eq('user_id', tx.user_id)
             .eq('asset', tx.asset);
-          
           if (wErr) throw wErr;
         }
       }
 
-      // 3. Mark transaction as completed
       const { error: txErr } = await supabase
         .from('transactions')
         .update({ status: 'completed' })
         .eq('id', tx.id);
-      
       if (txErr) throw txErr;
 
       setTransactions(prev => prev.map(t => t.id === tx.id ? { ...t, status: 'completed' } : t));
@@ -83,7 +82,6 @@ export default function AdminTransactionsPage() {
     setProcessingId(tx.id);
     try {
       if (tx.type === 'withdrawal') {
-        // Refund the user
         const { data: wallet } = await supabase
           .from('wallets')
           .select('balance')
@@ -105,7 +103,6 @@ export default function AdminTransactionsPage() {
         .from('transactions')
         .update({ status: 'failed' })
         .eq('id', tx.id);
-      
       if (txErr) throw txErr;
 
       setTransactions(prev => prev.map(t => t.id === tx.id ? { ...t, status: 'failed' } : t));
@@ -117,7 +114,15 @@ export default function AdminTransactionsPage() {
     }
   };
 
-  const filteredTx = transactions.filter(t => filter === 'all' || t.status === filter);
+  const filtered = transactions.filter(t => {
+    const matchesStatus = filter === 'all' || t.status === filter;
+    const matchesSearch = !search || 
+      t.profiles?.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+      t.user_id?.toLowerCase().includes(search.toLowerCase()) ||
+      t.id?.toLowerCase().includes(search.toLowerCase()) ||
+      t.asset?.toLowerCase().includes(search.toLowerCase());
+    return matchesStatus && matchesSearch;
+  });
 
   if (loading) {
     return (
@@ -129,27 +134,63 @@ export default function AdminTransactionsPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '32px', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '4px' }}>Transaction Monitoring</h1>
-          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>Review and approve user funding requests</p>
+          <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '14px' }}>
+            {transactions.length} total transactions · {transactions.filter(t => t.status === 'pending').length} pending review
+          </p>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px', background: '#111', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.07)' }}>
-          {(['pending', 'completed', 'failed', 'all'] as const).map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Search */}
+          <div style={{ position: 'relative' }}>
+            <Search size={16} color="rgba(255,255,255,0.3)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+            <input
+              type="text"
+              placeholder="Search user, ID, asset..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
               style={{
-                padding: '8px 16px', borderRadius: '7px', fontSize: '13px', fontWeight: 600,
-                border: 'none', cursor: 'pointer', transition: 'all 0.2s', textTransform: 'capitalize',
-                background: filter === f ? 'rgba(201,160,80,0.15)' : 'transparent',
-                color: filter === f ? '#C9A050' : 'rgba(255,255,255,0.4)',
+                padding: '10px 12px 10px 36px',
+                background: '#111', border: '1px solid rgba(255,255,255,0.07)',
+                borderRadius: '10px', color: '#fff', fontSize: '13px',
+                outline: 'none', width: '220px',
               }}
-            >
-              {f}
-            </button>
-          ))}
+            />
+          </div>
+
+          {/* Refresh */}
+          <button
+            onClick={fetchTransactions}
+            style={{
+              display: 'flex', alignItems: 'center', gap: '6px',
+              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+              borderRadius: '10px', padding: '10px 14px', color: 'rgba(255,255,255,0.6)',
+              cursor: 'pointer', fontSize: '13px', fontWeight: 600,
+            }}
+          >
+            <RefreshCw size={14} /> Refresh
+          </button>
+
+          {/* Status filters */}
+          <div style={{ display: 'flex', gap: '4px', background: '#111', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.07)' }}>
+            {(['pending', 'completed', 'failed', 'all'] as const).map(f => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                style={{
+                  padding: '8px 14px', borderRadius: '7px', fontSize: '12px', fontWeight: 600,
+                  border: 'none', cursor: 'pointer', transition: 'all 0.2s', textTransform: 'capitalize',
+                  background: filter === f ? 'rgba(201,160,80,0.15)' : 'transparent',
+                  color: filter === f ? '#C9A050' : 'rgba(255,255,255,0.4)',
+                }}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -163,7 +204,7 @@ export default function AdminTransactionsPage() {
             </tr>
           </thead>
           <tbody>
-            {filteredTx.map(tx => {
+            {filtered.map(tx => {
               const statusColor = tx.status === 'completed' ? '#22c55e' : tx.status === 'pending' ? '#f59e0b' : '#ef4444';
               const isProcessing = processingId === tx.id;
 
@@ -182,8 +223,8 @@ export default function AdminTransactionsPage() {
                     </div>
                   </td>
                   <td style={{ padding: '20px 24px' }}>
-                    <div style={{ fontWeight: 500 }}>{tx.profiles?.full_name || 'System User'}</div>
-                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>{tx.user_id.slice(0, 12)}...</div>
+                    <div style={{ fontWeight: 500 }}>{tx.profiles?.full_name || 'Unknown User'}</div>
+                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', fontFamily: 'monospace' }}>{tx.user_id?.slice(0, 14)}...</div>
                   </td>
                   <td style={{ padding: '20px 24px' }}>
                     <div style={{ fontWeight: 700, fontSize: '15px' }}>{tx.amount} {tx.asset}</div>
@@ -242,11 +283,16 @@ export default function AdminTransactionsPage() {
                 </tr>
               );
             })}
-            {filteredTx.length === 0 && (
+            {filtered.length === 0 && (
               <tr>
                 <td colSpan={6} style={{ padding: '60px', textAlign: 'center', color: 'rgba(255,255,255,0.2)' }}>
-                  <div style={{ marginBottom: '12px' }}>📭</div>
-                  No {filter} transactions found.
+                  <div style={{ marginBottom: '12px', fontSize: '32px' }}>📭</div>
+                  No {filter !== 'all' ? filter : ''} transactions found.
+                  {transactions.length === 0 && (
+                    <div style={{ fontSize: '12px', marginTop: '8px', color: 'rgba(255,255,255,0.15)' }}>
+                      Ensure admin RLS policies are applied in your Supabase project.
+                    </div>
+                  )}
                 </td>
               </tr>
             )}
