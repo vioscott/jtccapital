@@ -79,7 +79,7 @@ const stats = [
 ];
 
 const testimonials = [
-  { name: 'Marcus T.', role: 'Private Investor', text: 'JTC Invest gave me exposure to gold I never thought possible. Returns have been solid and the interface is beautiful.', stars: 5 },
+  { name: 'Marcus T.', role: 'Private Investor', text: 'JTC management INC gave me exposure to gold I never thought possible. Returns have been solid and the interface is beautiful.', stars: 5 },
   { name: 'Priya K.', role: 'Crypto Trader', text: 'The trading interface rivals the best platforms out there. Execution is fast and charts are detailed.', stars: 5 },
   { name: 'James O.', role: 'Portfolio Manager', text: 'The managed investment plans are transparent and realistic. Finally a platform that doesn\'t oversell returns.', stars: 5 },
 ];
@@ -463,3 +463,4 @@ export default function LandingPage() {
     </div>
   );
 }
+

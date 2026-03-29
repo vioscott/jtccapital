@@ -12,7 +12,7 @@ export default function SupportPage() {
   const [submitted, setSubmitted] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState([
-    { from:'agent', text:'Hi! I\'m your JTC Invest support assistant. How can I help you today?', time:'now' },
+    { from:'agent', text:'Hi! I\'m your JTC management INC support assistant. How can I help you today?', time:'now' },
   ]);
 
   const filtered = mockFAQ.filter(f =>
@@ -21,7 +21,16 @@ export default function SupportPage() {
   );
 
   const handleTicketSubmit = () => {
-    if (!ticketForm.subject || !ticketForm.message) return;
+    if (!ticketForm.subject || !ticketForm.message || !ticketForm.email) {
+      alert('Please fill in email, subject, and message to submit a ticket.');
+      return;
+    }
+
+    const mailto = `mailto:jtccapitalholdings@gmail.com?subject=${encodeURIComponent('Support Ticket: ' + ticketForm.subject)}&body=${encodeURIComponent(
+      `From: ${ticketForm.email}\n\nSubject: ${ticketForm.subject}\n\nMessage:\n${ticketForm.message}`
+    )}`;
+    window.location.href = mailto;
+
     setSubmitted(true);
     setTimeout(() => setSubmitted(false), 3500);
     setTicketForm({ subject:'', message:'', email:'' });
@@ -284,3 +293,4 @@ export default function SupportPage() {
     </div>
   );
 }
+

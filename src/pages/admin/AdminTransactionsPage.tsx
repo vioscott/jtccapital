@@ -46,6 +46,7 @@ export default function AdminTransactionsPage() {
     setProcessingId(tx.id);
     try {
       if (tx.type === 'deposit') {
+        // For deposits: add the approved amount to user's wallet
         const { data: wallet } = await supabase
           .from('wallets')
           .select('balance')
@@ -57,6 +58,24 @@ export default function AdminTransactionsPage() {
           const { error: wErr } = await supabase
             .from('wallets')
             .update({ balance: Number(wallet.balance) + Number(tx.amount) })
+            .eq('user_id', tx.user_id)
+            .eq('asset', tx.asset);
+          if (wErr) throw wErr;
+        }
+      } else if (tx.type === 'withdrawal') {
+        // For withdrawals: deduct the amount + fee from user's wallet
+        const { data: wallet } = await supabase
+          .from('wallets')
+          .select('balance')
+          .eq('user_id', tx.user_id)
+          .eq('asset', tx.asset)
+          .single();
+
+        if (wallet) {
+          const totalDeduction = Number(tx.amount) + (Number(tx.fee) || 0);
+          const { error: wErr } = await supabase
+            .from('wallets')
+            .update({ balance: Number(wallet.balance) - totalDeduction })
             .eq('user_id', tx.user_id)
             .eq('asset', tx.asset);
           if (wErr) throw wErr;
@@ -81,24 +100,9 @@ export default function AdminTransactionsPage() {
   const handleReject = async (tx: any) => {
     setProcessingId(tx.id);
     try {
-      if (tx.type === 'withdrawal') {
-        const { data: wallet } = await supabase
-          .from('wallets')
-          .select('balance')
-          .eq('user_id', tx.user_id)
-          .eq('asset', tx.asset)
-          .single();
-
-        if (wallet) {
-          const { error: wErr } = await supabase
-            .from('wallets')
-            .update({ balance: Number(wallet.balance) + Number(tx.amount) })
-            .eq('user_id', tx.user_id)
-            .eq('asset', tx.asset);
-          if (wErr) throw wErr;
-        }
-      }
-
+      // For deposits and withdrawals: no wallet action needed on rejection
+      // Deposits never added funds, withdrawals never deducted funds (they're pending approval)
+      
       const { error: txErr } = await supabase
         .from('transactions')
         .update({ status: 'failed' })

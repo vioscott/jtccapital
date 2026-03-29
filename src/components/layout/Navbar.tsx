@@ -27,7 +27,7 @@ export default function Navbar() {
   const handleLogout = async () => {
     await signOut();
     setShowLogoutConfirm(false);
-    navigate('/');
+    navigate('/login');
   };
 
   useEffect(() => {
@@ -56,7 +56,7 @@ export default function Navbar() {
           <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
             <img 
               src={jtcLogo} 
-              alt="JTC Invest" 
+              alt="JTC management INC" 
               style={{ height: '62px', width: 'auto' }} 
               loading="lazy"
             />
@@ -239,3 +239,4 @@ export default function Navbar() {
     </>
   );
 }
+

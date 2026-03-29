@@ -41,13 +41,13 @@ export default function AboutPage() {
               borderRadius: '100px', padding: '6px 18px', marginBottom: '20px',
             }}>
               <Award size={14} color="#C9A050" />
-              <span style={{ color: '#C9A050', fontSize: '13px', fontWeight: 500 }}>About JTC Capital Holdings</span>
+              <span style={{ color: '#C9A050', fontSize: '13px', fontWeight: 500 }}>About JTC management INC</span>
             </div>
             <h1 style={{ fontSize: 'clamp(32px, 4.5vw, 54px)', fontWeight: 800, lineHeight: 1.15, marginBottom: '18px' }}>
               Built on <span className="gradient-text-gold">Trust</span>,<br />Driven by <span className="gradient-text-cyan">Innovation</span>
             </h1>
             <p style={{ fontSize: '17px', color: 'rgba(255,255,255,0.55)', lineHeight: 1.75 }}>
-              JTC Capital Holdings is a next-generation investment platform dedicated to making gold and crypto markets accessible, transparent, and secure for every investor.
+              JTC management INC is a next-generation investment platform dedicated to making gold and crypto markets accessible, transparent, and secure for every investor.
             </p>
           </motion.div>
         </div>
@@ -196,10 +196,11 @@ export default function AboutPage() {
           <p style={{ color: 'rgba(255,255,255,0.5)', lineHeight: 1.85, fontSize: '15px' }}>
             We will never guarantee unrealistic returns. We will never hide fees. We will never compromise on security.
             Our platform is built on the foundational belief that transparency and user protection are non-negotiable.
-            When you invest with JTC Capital Holdings, you invest with a team that treats your capital with the same respect as their own.
+            When you invest with JTC management INC, you invest with a team that treats your capital with the same respect as their own.
           </p>
         </div>
       </section>
     </div>
   );
 }
+

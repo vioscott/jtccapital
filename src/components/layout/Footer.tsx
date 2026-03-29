@@ -48,7 +48,7 @@ export default function Footer() {
           {/* Brand column */}
           <div>
             <Link to="/" style={{ display: 'block', textDecoration: 'none', marginBottom: '16px' }}>
-              <img src={jtcLogo} alt="JTC Invest" style={{ height: '54px', width: 'auto', display: 'block' }} />
+              <img src={jtcLogo} alt="JTC management INC" style={{ height: '54px', width: 'auto', display: 'block' }} />
             </Link>
             <p style={{ color: 'rgba(255,255,255,0.45)', fontSize: '13px', lineHeight: '1.7', marginBottom: '20px' }}>
               A next-generation investment platform for Crypto and real world assets. Trade smarter, grow faster.
@@ -109,7 +109,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
           <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: '13px', margin: 0 }}>
-            © {new Date().getFullYear()} JTC Capital Holdings. All rights reserved.
+            © {new Date().getFullYear()} JTC management INC. All rights reserved.
           </p>
           <div style={{ display: 'flex', gap: '12px' }}>
             {socials.map(({ icon: Icon, href }, i) => (
@@ -132,3 +132,4 @@ export default function Footer() {
     </footer>
   );
 }
+

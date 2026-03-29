@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, AlertTriangle, ArrowRight, Zap, TrendingUp, Star, Loader2, X } from 'lucide-react';
+import { Check, ArrowRight, Zap, TrendingUp, Star, Loader2, X } from 'lucide-react';
 import { mockPlans } from '../mock/data';
 import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
@@ -101,7 +101,7 @@ export default function PlansPage() {
         </div>
 
         {/* Risk disclaimer banner */}
-        <div style={{
+        {/* <div style={{
           background:'rgba(239,68,68,0.08)', border:'1px solid rgba(239,68,68,0.25)',
           borderRadius:'12px', padding:'14px 20px',
           display:'flex', alignItems:'center', gap:'12px', marginBottom:'48px',
@@ -111,7 +111,7 @@ export default function PlansPage() {
             <strong style={{ color:'#ef4444' }}>Risk Warning: </strong>
             All investments carry risk. Projected ROI figures are indicative based on historical performance and do not constitute a guarantee of future returns. You may lose part or all of your invested capital.
           </p>
-        </div>
+        </div> */}
 
         {/* Plan cards */}
         <div style={{
@@ -310,7 +310,7 @@ export default function PlansPage() {
         <div style={{ background:'#111', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'18px', padding:'32px' }}>
           <h3 style={{ fontSize:'20px', fontWeight:700, marginBottom:'20px' }}>Plan FAQ</h3>
           {[
-            { q:'Can I withdraw early?', a:'Yes, with a 2% early-exit penalty, applied to ensure fund stability for other investors.' },
+            { q:'Can I withdraw early?', a:'Yes, with a 20% early-exit penalty on your investment amount, applied to ensure fund stability for other investors.' },
             { q:'How are returns calculated?', a:'Returns are based on blended performance across our managed gold and crypto portfolios, credited at plan maturity.' },
             { q:'Is my principal protected?', a:'No. Market conditions can cause principal loss. Invest only what you can afford to lose.' },
           ].map(item => (

@@ -67,6 +67,74 @@ export default function TradingPage() {
 
   const usdtWallet = wallets.find(w => w.asset === 'USDT') || { balance: 0 };
 
+  // 1. Fetch live price
+  // 2. Check user wallet balance
+  // 3. Deduct funds
+  // 4. Create trade record
+  // 5. Update wallet
+  // 6. Return result
+  async function executeTrade() {
+    if (!user || !amount || parseFloat(amount) <= 0) {
+      throw new Error('Invalid trade parameters');
+    }
+
+    // 1. Fetch live price
+    const currentPrice = prices[pair.symbol]?.price;
+    if (!currentPrice || currentPrice <= 0) {
+      throw new Error('Unable to fetch current market price');
+    }
+
+    const tradeSize = parseFloat(amount);
+    const tradeValue = tradeSize * currentPrice;
+    const tradeFee = tradeValue * 0.001; // 0.1% fee
+
+    // 2. Check user wallet balance
+    const usdtBal = Number(usdtWallet.balance || 0);
+    if (orderType === 'buy' && tradeValue + tradeFee > usdtBal) {
+      throw new Error('Insufficient USDT balance to execute buy order');
+    }
+
+    // 3. Deduct funds (for buy orders)
+    if (orderType === 'buy') {
+      const { error: walletUpdateError } = await supabase.from('wallets')
+        .update({ balance: usdtBal - (tradeValue + tradeFee) })
+        .eq('user_id', user.id)
+        .eq('asset', 'USDT');
+      if (walletUpdateError) throw walletUpdateError;
+    }
+
+    // 4. Create trade record
+    const { error: tradeError } = await supabase.from('trades').insert({
+      user_id: user.id,
+      type: orderType,
+      asset: pair.symbol,
+      amount: tradeSize,
+      entry_price: currentPrice,
+      fee: tradeFee,
+      status: 'open',
+      created_at: new Date().toISOString(),
+    });
+    if (tradeError) throw tradeError;
+
+    // 5. Update wallet (already updated for buys, for sells we will assume close flow call handles proceeds)
+    if (orderType === 'sell') {
+      const matchingPos = openTrades.find(t => t.asset === pair.symbol && t.type === 'buy');
+      if (!matchingPos) {
+        throw new Error(`No open ${pair.symbol} position found to sell`);
+      }
+      // sell closes position and updates wallet balance in close trade method
+      await handleCloseTrade(matchingPos.id);
+    }
+
+    // 6. Return result
+    return {
+      success: true,
+      message: orderType === 'buy'
+        ? `Bought ${tradeSize} ${pair.symbol} at $${currentPrice.toFixed(2)}`
+        : `Sell order executed for ${pair.symbol}`,
+    };
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!user || !amount || parseFloat(amount) <= 0) return;
@@ -75,40 +143,8 @@ export default function TradingPage() {
     setMessage(null);
 
     try {
-      if (orderType === 'buy') {
-        const cost = totalUSD + fee;
-        if (cost > Number(usdtWallet.balance)) {
-          throw new Error('Insufficient USDT balance to cover trade and 0.1% fee');
-        }
-
-        // 1. Create trade
-        const { error: tErr } = await supabase.from('trades').insert({
-          user_id: user.id,
-          type: 'buy',
-          asset: pair.symbol,
-          amount: parseFloat(amount),
-          entry_price: price.price,
-          status: 'open'
-        });
-        if (tErr) throw tErr;
-
-        // 2. Deduct USDT
-        const { error: wErr } = await supabase.from('wallets')
-          .update({ balance: Number(usdtWallet.balance) - cost })
-          .eq('user_id', user.id)
-          .eq('asset', 'USDT');
-        if (wErr) throw wErr;
-
-        setMessage({ type: 'success', text: `Successfully bought ${amount} ${pair.symbol}` });
-      } else {
-        // Simple sell logic: Check if user has an open long position to close
-        const matchingPos = openTrades.find(t => t.asset === pair.symbol && t.type === 'buy');
-        if (!matchingPos) {
-          throw new Error(`You don't have an open ${pair.symbol} long position to sell.`);
-        }
-        await handleCloseTrade(matchingPos.id);
-        setMessage({ type: 'success', text: `Successfully closed ${pair.symbol} position` });
-      }
+      const result = await executeTrade();
+      setMessage({ type: 'success', text: result.message });
 
       // Refresh data
       const [wRes, tRes] = await Promise.all([

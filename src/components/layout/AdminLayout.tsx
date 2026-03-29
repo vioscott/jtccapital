@@ -26,6 +26,11 @@ export default function AdminLayout() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { signOut } = useAuth();
 
+  const handleExitToSite = async () => {
+    await signOut();
+    navigate('/');
+  };
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#080808', color: '#fff' }}>
       {/* Sidebar */}
@@ -45,7 +50,7 @@ export default function AdminLayout() {
         <div style={{ padding: '32px 24px' }}>
           <img 
             src={jtcLogo} 
-            alt="JTC Admin" 
+            alt="JTC management INC Admin" 
             style={{ height: '40px', width: 'auto' }} 
             loading="lazy"
           />
@@ -100,13 +105,13 @@ export default function AdminLayout() {
 
         {/* Footer actions */}
         <div style={{ padding: '24px', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-          <Link to="/" style={{
+          <button onClick={handleExitToSite} style={{
             display: 'flex', alignItems: 'center', gap: '10px',
             padding: '10px', borderRadius: '8px', color: 'rgba(255,255,255,0.5)',
             fontSize: '13px', textDecoration: 'none', marginBottom: '8px'
           }}>
             <LogOut size={16} /> Exit to Site
-          </Link>
+          </button>
           <button 
             onClick={() => setShowLogoutConfirm(true)}
             style={{
@@ -182,3 +187,4 @@ export default function AdminLayout() {
     </div>
   );
 }
+

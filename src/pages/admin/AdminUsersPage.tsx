@@ -12,8 +12,9 @@ export default function AdminUsersPage() {
   const [search, setSearch] = useState('');
   const [editingUser, setEditingUser] = useState<any>(null);
   const [editingWallets, setEditingWallets] = useState<Record<string, string>>({});
+  const [editingAddresses, setEditingAddresses] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'profile' | 'balance'>('profile');
+  const [activeTab, setActiveTab] = useState<'profile' | 'balance' | 'addresses'>('profile');
 
   useEffect(() => {
     fetchData();
@@ -39,11 +40,14 @@ export default function AdminUsersPage() {
     setEditingUser({ ...user });
     const userWallets = wallets.filter(w => w.user_id === user.id);
     const initial: Record<string, string> = {};
+    const addresses: Record<string, string> = {};
     ASSETS.forEach(asset => {
       const found = userWallets.find(w => w.asset === asset);
       initial[asset] = found ? String(found.balance) : '0';
+      addresses[asset] = found ? (found.address || '') : '';
     });
     setEditingWallets(initial);
+    setEditingAddresses(addresses);
     setActiveTab('profile');
   };
 
@@ -68,11 +72,12 @@ export default function AdminUsersPage() {
       // Update wallets
       for (const asset of ASSETS) {
         const newBalance = parseFloat(editingWallets[asset] || '0');
+        const newAddress = editingAddresses[asset] || '';
         const existing = wallets.find(w => w.user_id === editingUser.id && w.asset === asset);
         if (existing) {
           const { error } = await supabase
             .from('wallets')
-            .update({ balance: newBalance })
+            .update({ balance: newBalance, address: newAddress })
             .eq('user_id', editingUser.id)
             .eq('asset', asset);
           if (error) throw error;
@@ -213,7 +218,7 @@ export default function AdminUsersPage() {
 
               {/* Tabs */}
               <div style={{ display: 'flex', gap: '4px', background: 'rgba(255,255,255,0.04)', padding: '4px', borderRadius: '10px', marginBottom: '24px' }}>
-                {(['profile', 'balance'] as const).map(tab => (
+                {(['profile', 'balance', 'addresses'] as const).map(tab => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
@@ -225,8 +230,8 @@ export default function AdminUsersPage() {
                       display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
                     }}
                   >
-                    {tab === 'profile' ? <User size={14} /> : <DollarSign size={14} />}
-                    {tab === 'profile' ? 'Profile' : 'Wallet Balances'}
+                    {tab === 'profile' ? <User size={14} /> : tab === 'balance' ? <DollarSign size={14} /> : <Wallet size={14} />}
+                    {tab === 'profile' ? 'Profile' : tab === 'balance' ? 'Balances' : 'Addresses'}
                   </button>
                 ))}
               </div>
@@ -270,7 +275,7 @@ export default function AdminUsersPage() {
                       </div>
                     </div>
                   </>
-                ) : (
+                ) : activeTab === 'balance' ? (
                   <div style={{ marginBottom: '24px' }}>
                     <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.35)', marginBottom: '16px' }}>
                       Edit individual asset balances. Changes take effect immediately on save.
@@ -305,7 +310,35 @@ export default function AdminUsersPage() {
                       ))}
                     </div>
                   </div>
+                ) : (
+                  <div style={{ marginBottom: '24px' }}>
+                    <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.35)', marginBottom: '16px' }}>
+                      Edit deposit wallet addresses for each asset. Users will see these addresses for deposits.
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {ASSETS.map(asset => (
+                        <div key={asset}>
+                          <label style={{ display: 'block', fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginBottom: '6px', fontWeight: 500 }}>
+                            {asset} Deposit Address
+                          </label>
+                          <input
+                            type="text"
+                            value={editingAddresses[asset] || ''}
+                            onChange={e => setEditingAddresses(prev => ({ ...prev, [asset]: e.target.value }))}
+                            placeholder={`Enter ${asset} wallet address...`}
+                            style={{
+                              width: '100%', padding: '10px 12px',
+                              background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)',
+                              borderRadius: '8px', color: '#fff', fontSize: '13px', outline: 'none',
+                              fontFamily: 'monospace',
+                            }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
+
 
                 <div style={{ display: 'flex', gap: '12px' }}>
                   <button 

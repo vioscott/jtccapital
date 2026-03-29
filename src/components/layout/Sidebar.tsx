@@ -35,7 +35,7 @@ export default function Sidebar({ onClose, isMobile }: SidebarProps) {
     await signOut();
     setShowLogoutConfirm(false);
     onClose?.();
-    navigate('/');
+    navigate('/login');
   };
 
   const content = (

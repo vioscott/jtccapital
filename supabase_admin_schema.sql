@@ -1,4 +1,4 @@
--- JTC Invest Admin Schema
+-- JTC management INC Admin Schema
 -- 1. Add role to profiles
 alter table public.profiles add column if not exists role text default 'user';
 
@@ -58,3 +58,4 @@ using (auth.uid() = user_id OR public.get_role(auth.uid()) = 'admin');
 drop policy if exists "Users can update own investments" on public.investments;
 create policy "Users can update own investments" on public.investments for update 
 using (auth.uid() = user_id OR public.get_role(auth.uid()) = 'admin');
+

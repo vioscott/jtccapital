@@ -83,29 +83,33 @@ export default function WalletPage() {
 
     try {
       if (mode === 'withdraw') {
-        if (Number(amount) > Number(activeWallet.balance)) {
+        const withdrawalAmount = Number(amount);
+        if (withdrawalAmount <= 0) throw new Error('Withdrawal amount must be greater than 0');
+        if (withdrawalAmount > Number(activeWallet.balance)) {
           throw new Error('Insufficient balance');
         }
         if (!address) throw new Error('Recipient address is required');
 
-        // 1. Create transaction record
+        // 1. Calculate withdrawal fee (10% of withdrawal amount)
+        const withdrawalFee = withdrawalAmount * 0.1;
+        const totalDeduction = withdrawalAmount + withdrawalFee;
+        if (totalDeduction > Number(activeWallet.balance)) {
+          throw new Error(`Insufficient balance. Withdrawal + 10% fee = ${totalDeduction.toFixed(2)} ${selectedAsset}`);
+        }
+
+        // 2. Create transaction record with pending status (admin approval required)
         const { error: txErr } = await supabase.from('transactions').insert({
           user_id: user.id,
           type: 'withdrawal',
           asset: selectedAsset,
-          amount: Number(amount),
+          amount: withdrawalAmount,
+          fee: withdrawalFee,
           status: 'pending'
         });
         if (txErr) throw txErr;
 
-        // 2. Deduct from wallet
-        const { error: wErr } = await supabase.from('wallets')
-          .update({ balance: Number(activeWallet.balance) - Number(amount) })
-          .eq('user_id', user.id)
-          .eq('asset', selectedAsset);
-        if (wErr) throw wErr;
-
-        setMessage({ type: 'success', text: 'Withdrawal request submitted successfully' });
+        // Note: Wallet deduction happens only after admin approval
+        setMessage({ type: 'success', text: 'Withdrawal request submitted. Awaiting admin approval.' });
       } else {
         // Deposit - currently just logging intent for MVP
         const { error: txErr } = await supabase.from('transactions').insert({
@@ -376,7 +380,7 @@ export default function WalletPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {[
                   { label: 'Processing Time', value: 'Instant - 24 hours' },
-                  { label: 'Withdrawal Fee', value: selectedAsset === 'BTC' ? '0.0005 BTC' : selectedAsset === 'ETH' ? '0.003 ETH' : '10 USDT' },
+                  { label: 'Withdrawal Fee', value: '10% of withdrawal amount' },
                   { label: 'Min. Withdrawal', value: selectedAsset === 'BTC' ? '0.007 BTC' : selectedAsset === 'ETH' ? '0.23 ETH' : '$500 USDT' },
                   { label: 'Manual Review', value: 'Required above $10,000' },
                 ].map(row => (

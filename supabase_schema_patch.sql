@@ -1,4 +1,4 @@
--- JTC Invest Schema Patch: OIL Support & Investments
+-- JTC management INC Schema Patch: OIL Support & Investments
 -- 1. Update the wallet seeding for NEW users to include OIL
 create or replace function public.seed_user_wallets() returns trigger as $$
 begin
@@ -37,3 +37,4 @@ insert into public.wallets (user_id, asset, balance)
 select id, 'OIL', 0
 from public.profiles
 on conflict (user_id, asset) do nothing;
+

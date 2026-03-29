@@ -1,6 +1,4 @@
--- JTC Invest Supabase Schema MVP
 
--- 1. PROFILES TABLE
 -- Extended user data linked to auth.users
 create table public.profiles (
   id uuid references auth.users(id) on delete cascade primary key,
@@ -100,3 +98,4 @@ alter table public.trades enable row level security;
 create policy "Users can read own trades" on public.trades for select using (auth.uid() = user_id);
 create policy "Users can insert own trades" on public.trades for insert with check (auth.uid() = user_id);
 create policy "Users can update own trades" on public.trades for update using (auth.uid() = user_id);
+

@@ -22,3 +22,4 @@ create policy "Admins can read all wallets"
 create policy "Admins can update all wallets"
   on public.wallets for update
   using (public.get_role(auth.uid()) = 'admin');
+
