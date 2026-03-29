@@ -4,6 +4,7 @@ create table public.profiles (
   id uuid references auth.users(id) on delete cascade primary key,
   full_name text,
   tier integer default 1, -- 1=Standard, 2=Gold, 3=Platinum
+  kyc_verified boolean default false,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );

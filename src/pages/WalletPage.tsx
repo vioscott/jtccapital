@@ -46,19 +46,22 @@ export default function WalletPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [profile, setProfile] = useState<any>(null);
 
   useEffect(() => {
     async function fetchWalletData() {
       if (!user) return;
       setIsLoading(true);
       try {
-        const [wRes, txRes] = await Promise.all([
+        const [wRes, txRes, pRes] = await Promise.all([
           supabase.from('wallets').select('*').eq('user_id', user.id),
-          supabase.from('transactions').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+          supabase.from('transactions').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+          supabase.from('profiles').select('*').eq('id', user.id).single()
         ]);
 
         if (wRes.data) setWallets(wRes.data.filter(w => w.asset !== 'GOLD' && w.asset !== 'OIL'));
         if (txRes.data) setTransactions(txRes.data);
+        if (pRes.data) setProfile(pRes.data);
       } catch (err) {
         console.error('Error fetching wallet data:', err);
       } finally {
@@ -89,6 +92,12 @@ export default function WalletPage() {
           throw new Error('Insufficient balance');
         }
         if (!address) throw new Error('Recipient address is required');
+
+        // Calculate USD value for KYC check
+        const usdValue = withdrawalAmount * (prices[selectedAsset]?.price || (selectedAsset === 'USDT' ? 1 : 0));
+        if (usdValue > 10000 && !profile?.kyc_verified) {
+          throw new Error('Withdrawals over $10,000 require KYC verification. Please contact support to verify your identity.');
+        }
 
         // 1. Calculate withdrawal fee (10% of withdrawal amount)
         const withdrawalFee = withdrawalAmount * 0.1;
@@ -382,7 +391,7 @@ export default function WalletPage() {
                   { label: 'Processing Time', value: 'Instant - 24 hours' },
                   { label: 'Withdrawal Fee', value: '10% of withdrawal amount' },
                   { label: 'Min. Withdrawal', value: selectedAsset === 'BTC' ? '0.007 BTC' : selectedAsset === 'ETH' ? '0.23 ETH' : '$500 USDT' },
-                  { label: 'Manual Review', value: 'Required above $10,000' },
+                  { label: 'KYC Required', value: 'For withdrawals > $10,000' },
                 ].map(row => (
                   <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '10px' }}>
                     <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.5)' }}>{row.label}</span>

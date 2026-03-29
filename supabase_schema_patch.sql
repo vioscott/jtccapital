@@ -1,4 +1,7 @@
 -- JTC management INC Schema Patch: OIL Support & Investments
+-- Add KYC verification column to profiles
+alter table public.profiles add column if not exists kyc_verified boolean default false;
+
 -- 1. Update the wallet seeding for NEW users to include OIL
 create or replace function public.seed_user_wallets() returns trigger as $$
 begin
