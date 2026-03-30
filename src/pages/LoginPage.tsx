@@ -20,18 +20,8 @@ export default function LoginPage() {
     if (error) {
       setError(error.message);
     } else if (data.user) {
-      // Check role for redirect
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', data.user.id)
-        .single();
-      
-      if (profile?.role === 'admin') {
-        navigate('/admin/dashboard');
-      } else {
-        navigate('/dashboard');
-      }
+      // Always redirect to dashboard - role-based redirect handled in AppContent
+      navigate('/dashboard');
     }
   };
 

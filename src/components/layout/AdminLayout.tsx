@@ -6,7 +6,8 @@ import {
   TrendingUp, 
   LogOut,
   ChevronRight,
-  Shield
+  Shield,
+  Wallet
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useState } from 'react';
@@ -16,6 +17,7 @@ import ConfirmModal from '../ui/ConfirmModal';
 const adminNav = [
   { label: 'Dashboard', to: '/admin/dashboard', icon: LayoutDashboard },
   { label: 'Users', to: '/admin/users', icon: Users },
+  { label: 'Wallet Defaults', to: '/admin/wallet-defaults', icon: Wallet },
   { label: 'Transactions', to: '/admin/transactions', icon: CreditCard },
   { label: 'Active Trades', to: '/admin/trades', icon: TrendingUp },
 ];

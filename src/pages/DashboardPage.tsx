@@ -59,7 +59,7 @@ const CustomPieTooltip = ({ active, payload }: any) => {
 export default function DashboardPage() {
   const { user } = useAuth();
   const { prices, loading: marketLoading } = useMarketData();
-  const [tab, setTab] = useState<'trades'|'transactions'>('transactions');
+  const [tab, setTab] = useState<'trades'|'transactions'>('trades');
   
   // Real data state
   const [profile, setProfile] = useState<any>(null);
@@ -76,19 +76,32 @@ export default function DashboardPage() {
       if (!user) return;
       setIsLoading(true);
       try {
-        const [wRes, tRes, txRes, invRes, pRes] = await Promise.all([
+        const [wRes, tRes, txRes, invRes] = await Promise.all([
           supabase.from('wallets').select('*').eq('user_id', user.id),
-          supabase.from('trades').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-          supabase.from('transactions').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-          supabase.from('investments').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-          supabase.from('profiles').select('full_name').eq('id', user.id).single(),
+          supabase.from('trades').select('*').eq('user_id', user.id),
+          supabase.from('transactions').select('*').eq('user_id', user.id),
+          supabase.from('investments').select('*').eq('user_id', user.id),
         ]);
 
-        if (wRes.data) setWallets(wRes.data);
-        if (tRes.data) setTrades(tRes.data);
-        if (txRes.data) setTransactions(txRes.data);
-        if (invRes.data) setInvestments(invRes.data);
-        if (pRes.data) setProfile(pRes.data);
+        // 🔥 LOG EVERYTHING
+        console.log('wallets:', wRes);
+        console.log('trades:', tRes);
+        console.log('transactions:', txRes);
+        console.log('investments:', invRes);
+        console.log('profile:', null);
+
+        // ✅ HANDLE ERRORS PROPERLY
+        if (wRes.error) console.error('wallets error:', wRes.error);
+        if (tRes.error) console.error('trades error:', tRes.error);
+        if (txRes.error) console.error('transactions error:', txRes.error);
+        if (invRes.error) console.error('investments error:', invRes.error);
+
+        // ✅ SAFE STATE SETTING
+        setWallets(wRes.data || []);
+        setTrades(tRes.data || []);
+        setTransactions(txRes.data || []);
+        setInvestments(invRes.data || []);
+        setProfile(null);
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
       } finally {
@@ -98,8 +111,8 @@ export default function DashboardPage() {
     fetchData();
   }, [user]);
 
-  // Compute live values from wallets
-  const liveAssets = wallets.map(w => {
+  // Compute live values from wallets (safe fallback)
+  const liveAssets = (wallets || []).map(w => {
     const activePrice = prices[w.asset]?.price || (w.asset === 'USDT' ? 1 : 0);
     return { asset: w.asset, balance: Number(w.balance), value: Number(w.balance) * activePrice };
   });
@@ -195,6 +208,109 @@ export default function DashboardPage() {
               }}>
                 <TrendingUp size={15} /> Trade
               </Link>
+            </div>
+          </div>
+
+          {/* Summary cards */}
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:'16px' }}>
+            {[
+              { label:'Total Portfolio', value: `$${liveTotalValue.toLocaleString(undefined,{minimumFractionDigits:2})}`, sub: `${up?'+':''}${liveChange24h.toFixed(2)}% today`, subColor:up?'#22c55e':'#ef4444', icon:DollarSign, highlight:true },
+                { label:'Active Plans', value: `$${totalActiveInvested.toLocaleString(undefined,{minimumFractionDigits:2})}`, sub: activeInvestments.length > 0 ? `${activeInvestments.length} running` : 'No active plans', subColor: activeInvestments.length > 0 ? '#C9A050' : 'rgba(255,255,255,0.4)', icon:Star },
+              { label:'Total P&L', value:`${totalPnL >= 0 ? '+' : ''}$${totalPnL.toLocaleString(undefined,{minimumFractionDigits:2})}`, sub:'All time',  subColor: totalPnL >= 0 ? '#22c55e' : '#ef4444', icon:TrendingUp },
+              { label:'Active Trades', value:String(trades.filter((t: any) => t.status === 'open').length), sub:'Open positions', subColor:'rgba(255,255,255,0.4)', icon:Activity },
+              { label:'Pending',       value:String(transactions.filter((tx: any) => tx.status === 'pending').length), sub:'Account events',  subColor:'#f59e0b', icon:ArrowUpRight },
+            ].map(card => (
+              <motion.div
+                key={card.label}
+                whileHover={{ y:-3 }}
+                style={{
+                  background: card.highlight ? 'linear-gradient(135deg, rgba(201,160,80,0.15), rgba(201,160,80,0.05))' : '#111',
+                  border: `1px solid ${card.highlight ? 'rgba(201,160,80,0.35)' : 'rgba(255,255,255,0.07)'}`,
+                  borderRadius:'14px', padding:'20px',
+                  boxShadow: card.highlight ? '0 0 30px rgba(201,160,80,0.15)' : 'none',
+                }}
+              >
+                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'12px' }}>
+                  <span style={{ fontSize:'13px', color:'rgba(255,255,255,0.5)' }}>{card.label}</span>
+                  <div style={{
+                    width:'32px', height:'32px', borderRadius:'8px',
+                    background:'rgba(201,160,80,0.15)',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                  }}>
+                    <card.icon size={16} color="#C9A050" />
+                  </div>
+                </div>
+                <div style={{ fontSize:'22px', fontWeight:800, color:card.highlight?'#C9A050':'#fff', marginBottom:'4px' }} className="stat-value">
+                  {(isLoading || marketLoading) ? <Skeleton width="120px" height="28px" /> : card.value}
+                </div>
+                <div style={{ fontSize:'12px', color:card.subColor }}>
+                  {(isLoading || marketLoading) ? <Skeleton width="80px" height="14px" style={{ marginTop: '4px' }} /> : card.sub}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          {/* Asset breakdown + pie chart */}
+          <div className="r-grid-asset-pie">
+            {/* Asset breakdown table */}
+            <div style={{ background:'#111', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'14px', padding:'24px' }}>
+              <h3 style={{ fontSize:'16px', fontWeight:700, marginBottom:'16px' }}>Asset Breakdown</h3>
+              <div style={{ display:'grid', gridTemplateColumns:'auto 1fr auto auto', gap:'12px 16px', alignItems:'center' }}>
+                <div style={{ fontSize:'11px', color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.08em' }}>Asset</div>
+                <div style={{ fontSize:'11px', color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.08em' }}>Allocation</div>
+                <div style={{ fontSize:'11px', color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.08em', textAlign:'right' }}>Balance</div>
+                <div style={{ fontSize:'11px', color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.08em', textAlign:'right' }}>Value</div>
+                {(isLoading || marketLoading) ? (
+                  [1,2,3,4].map(i => (
+                    <div key={i} style={{ display:'contents' }}>
+                      <Skeleton height="16px" width="60px" />
+                      <Skeleton height="16px" />
+                      <Skeleton height="16px" width="80px" style={{ marginLeft: 'auto' }} />
+                      <Skeleton height="16px" width="100px" style={{ marginLeft: 'auto' }} />
+                    </div>
+                  ))
+                ) : liveAssets.map((a, i) => (
+                  <div key={a.asset} style={{ display:'contents' }}>
+                    <div key={`${a.asset}-icon`} style={{ display:'flex', alignItems:'center', gap:'8px' }}>
+                      <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:COLORS[i] }} />
+                      <span style={{ fontWeight:600, fontSize:'14px' }}>{a.asset}</span>
+                    </div>
+                    <div key={`${a.asset}-bar`}>
+                      <div style={{ height:'5px', background:'rgba(255,255,255,0.06)', borderRadius:'3px' }}>
+                        <div style={{ height:'5px', width:`${liveTotalValue > 0 ? (a.value/liveTotalValue)*100 : 0}%`, background:COLORS[i], borderRadius:'3px' }} />
+                      </div>
+                    </div>
+                    <div key={`${a.asset}-bal`} style={{ textAlign:'right', fontSize:'13px', color:'rgba(255,255,255,0.65)' }}>{a.balance}</div>
+                    <div key={`${a.asset}-val`} style={{ textAlign:'right', fontSize:'13px', fontWeight:600, color:'#fff' }}>${a.value.toLocaleString(undefined,{minimumFractionDigits:2})}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Pie chart */}
+            <div style={{ background:'#111', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'14px', padding:'24px' }}>
+              <h3 style={{ fontSize:'16px', fontWeight:700, marginBottom:'8px' }}>Allocation</h3>
+              <ResponsiveContainer width="100%" height={180}>
+                <PieChart>
+                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" stroke="none">
+                    {pieData.map((_, i) => (
+                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<CustomPieTooltip />} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
+                {liveAssets.map((a, i) => (
+                  <div key={a.asset} style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
+                      <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:COLORS[i] }} />
+                      <span style={{ fontSize:'12px', color:'rgba(255,255,255,0.6)' }}>{a.asset}</span>
+                    </div>
+                    <span style={{ fontSize:'12px', fontWeight:600, color:COLORS[i] }}>{liveTotalValue > 0 ? ((a.value/liveTotalValue)*100).toFixed(1) : 0}%</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -340,134 +456,6 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
-
-          {/* Summary cards */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:'16px' }}>
-            {[
-              { label:'Total Portfolio', value: `$${liveTotalValue.toLocaleString(undefined,{minimumFractionDigits:2})}`, sub: `${up?'+':''}${liveChange24h.toFixed(2)}% today`, subColor:up?'#22c55e':'#ef4444', icon:DollarSign, highlight:true },
-                { label:'Active Plans', value: `$${totalActiveInvested.toLocaleString(undefined,{minimumFractionDigits:2})}`, sub: activeInvestments.length > 0 ? `${activeInvestments.length} running` : 'No active plans', subColor: activeInvestments.length > 0 ? '#C9A050' : 'rgba(255,255,255,0.4)', icon:Star },
-              { label:'Total P&L', value:`${totalPnL >= 0 ? '+' : ''}$${totalPnL.toLocaleString(undefined,{minimumFractionDigits:2})}`, sub:'All time',  subColor: totalPnL >= 0 ? '#22c55e' : '#ef4444', icon:TrendingUp },
-              { label:'Active Trades', value:String(trades.filter((t: any) => t.status === 'open').length), sub:'Open positions', subColor:'rgba(255,255,255,0.4)', icon:Activity },
-              { label:'Pending',       value:String(transactions.filter((tx: any) => tx.status === 'pending').length), sub:'Account events',  subColor:'#f59e0b', icon:ArrowUpRight },
-            ].map(card => (
-              <motion.div
-                key={card.label}
-                whileHover={{ y:-3 }}
-                style={{
-                  background: card.highlight ? 'linear-gradient(135deg, rgba(201,160,80,0.15), rgba(201,160,80,0.05))' : '#111',
-                  border: `1px solid ${card.highlight ? 'rgba(201,160,80,0.35)' : 'rgba(255,255,255,0.07)'}`,
-                  borderRadius:'14px', padding:'20px',
-                  boxShadow: card.highlight ? '0 0 30px rgba(201,160,80,0.15)' : 'none',
-                }}
-              >
-                <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'12px' }}>
-                  <span style={{ fontSize:'13px', color:'rgba(255,255,255,0.5)' }}>{card.label}</span>
-                  <div style={{
-                    width:'32px', height:'32px', borderRadius:'8px',
-                    background:'rgba(201,160,80,0.15)',
-                    display:'flex', alignItems:'center', justifyContent:'center',
-                  }}>
-                    <card.icon size={16} color="#C9A050" />
-                  </div>
-                </div>
-                <div style={{ fontSize:'22px', fontWeight:800, color:card.highlight?'#C9A050':'#fff', marginBottom:'4px' }} className="stat-value">
-                  {(isLoading || marketLoading) ? <Skeleton width="120px" height="28px" /> : card.value}
-                </div>
-                <div style={{ fontSize:'12px', color:card.subColor }}>
-                  {(isLoading || marketLoading) ? <Skeleton width="80px" height="14px" style={{ marginTop: '4px' }} /> : card.sub}
-                </div>
-              </motion.div>
-            ))}
-          </div>
-
-          {/* Asset breakdown + pie chart */}
-          <div className="r-grid-asset-pie">
-            {/* Asset breakdown table */}
-            <div style={{ background:'#111', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'14px', padding:'24px' }}>
-              <h3 style={{ fontSize:'16px', fontWeight:700, marginBottom:'16px' }}>Asset Breakdown</h3>
-              <div style={{ display:'grid', gridTemplateColumns:'auto 1fr auto auto', gap:'12px 16px', alignItems:'center' }}>
-                <div style={{ fontSize:'11px', color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.08em' }}>Asset</div>
-                <div style={{ fontSize:'11px', color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.08em' }}>Allocation</div>
-                <div style={{ fontSize:'11px', color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.08em', textAlign:'right' }}>Balance</div>
-                <div style={{ fontSize:'11px', color:'rgba(255,255,255,0.3)', textTransform:'uppercase', letterSpacing:'0.08em', textAlign:'right' }}>Value</div>
-                {(isLoading || marketLoading) ? (
-                  [1,2,3,4].map(i => (
-                    <div key={i} style={{ display:'contents' }}>
-                      <Skeleton height="16px" width="60px" />
-                      <Skeleton height="16px" />
-                      <Skeleton height="16px" width="80px" style={{ marginLeft: 'auto' }} />
-                      <Skeleton height="16px" width="100px" style={{ marginLeft: 'auto' }} />
-                    </div>
-                  ))
-                ) : liveAssets.map((a, i) => (
-                  <div key={a.asset} style={{ display:'contents' }}>
-                    <div key={`${a.asset}-icon`} style={{ display:'flex', alignItems:'center', gap:'8px' }}>
-                      <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:COLORS[i] }} />
-                      <span style={{ fontWeight:600, fontSize:'14px' }}>{a.asset}</span>
-                    </div>
-                    <div key={`${a.asset}-bar`}>
-                      <div style={{ height:'5px', background:'rgba(255,255,255,0.06)', borderRadius:'3px' }}>
-                        <div style={{ height:'5px', width:`${liveTotalValue > 0 ? (a.value/liveTotalValue)*100 : 0}%`, background:COLORS[i], borderRadius:'3px' }} />
-                      </div>
-                    </div>
-                    <div key={`${a.asset}-bal`} style={{ textAlign:'right', fontSize:'13px', color:'rgba(255,255,255,0.65)' }}>{a.balance}</div>
-                    <div key={`${a.asset}-val`} style={{ textAlign:'right', fontSize:'13px', fontWeight:600, color:'#fff' }}>${a.value.toLocaleString(undefined,{minimumFractionDigits:2})}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Pie chart */}
-            <div style={{ background:'#111', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'14px', padding:'24px' }}>
-              <h3 style={{ fontSize:'16px', fontWeight:700, marginBottom:'8px' }}>Allocation</h3>
-              <ResponsiveContainer width="100%" height={180}>
-                <PieChart>
-                  <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" stroke="none">
-                    {pieData.map((_, i) => (
-                      <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip content={<CustomPieTooltip />} />
-                </PieChart>
-              </ResponsiveContainer>
-              <div style={{ display:'flex', flexDirection:'column', gap:'6px' }}>
-                {liveAssets.map((a, i) => (
-                  <div key={a.asset} style={{ display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:'6px' }}>
-                      <div style={{ width:'8px', height:'8px', borderRadius:'50%', background:COLORS[i] }} />
-                      <span style={{ fontSize:'12px', color:'rgba(255,255,255,0.6)' }}>{a.asset}</span>
-                    </div>
-                    <span style={{ fontSize:'12px', fontWeight:600, color:COLORS[i] }}>{liveTotalValue > 0 ? ((a.value/liveTotalValue)*100).toFixed(1) : 0}%</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Live prices strip */}
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(160px, 1fr))', gap:'12px' }}>
-            {Object.values(prices).map((d) => (
-              <div key={d.symbol} style={{
-                background:'rgba(255,255,255,0.02)', border:'1px solid rgba(255,255,255,0.06)',
-                borderRadius:'10px', padding:'12px 16px',
-                display:'flex', justifyContent:'space-between', alignItems:'center',
-              }}>
-                <div>
-                  <div style={{ fontSize:'12px', color:'rgba(255,255,255,0.4)', marginBottom:'3px' }}>{d.symbol}</div>
-                  <div style={{ fontWeight:700, fontSize:'14px' }}>${d.price.toLocaleString(undefined,{ maximumFractionDigits:2, minimumFractionDigits:2 })}</div>
-                </div>
-                <span style={{
-                  fontSize:'12px', fontWeight:600, padding:'3px 8px', borderRadius:'6px',
-                  color: d.change>=0?'#22c55e':'#ef4444',
-                  background: d.change>=0?'rgba(34,197,94,0.1)':'rgba(239,68,68,0.1)',
-                }}>
-                  {d.change>=0?'+':''}{d.change.toFixed(2)}%
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {/* Activity table */}
           <div style={{ background:'#111', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'14px', padding:'24px' }}>
             <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:'20px' }}>
               <h3 style={{ fontSize:'16px', fontWeight:700 }}>Recent Activity</h3>

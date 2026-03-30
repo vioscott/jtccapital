@@ -8,6 +8,7 @@ const ASSETS = ['BTC', 'ETH', 'USDT', 'GOLD'];
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [wallets, setWallets] = useState<any[]>([]);
+  const [defaultAddresses, setDefaultAddresses] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [editingUser, setEditingUser] = useState<any>(null);
@@ -23,12 +24,20 @@ export default function AdminUsersPage() {
   async function fetchData() {
     setLoading(true);
     try {
-      const [{ data: profilesData }, { data: walletsData }] = await Promise.all([
+      const [{ data: profilesData }, { data: walletsData }, { data: defaultsData }] = await Promise.all([
         supabase.from('profiles').select('*').order('created_at', { ascending: false }),
         supabase.from('wallets').select('*'),
+        supabase.from('default_wallet_addresses').select('asset, address')
       ]);
       if (profilesData) setUsers(profilesData);
       if (walletsData) setWallets(walletsData);
+      if (defaultsData) {
+        const defaultsMap: Record<string, string> = {};
+        defaultsData.forEach(item => {
+          defaultsMap[item.asset] = item.address;
+        });
+        setDefaultAddresses(defaultsMap);
+      }
     } catch (err) {
       console.error('Error fetching admin users data:', err);
     } finally {
@@ -106,6 +115,11 @@ export default function AdminUsersPage() {
     return wallets
       .filter(w => w.user_id === userId)
       .reduce((sum, w) => sum + Number(w.balance), 0);
+  };
+
+  const isUsingDefaultAddress = (asset: string, userAddress: string) => {
+    const defaultAddr = defaultAddresses[asset];
+    return defaultAddr && userAddress === defaultAddr;
   };
 
   if (loading) {
@@ -314,12 +328,28 @@ export default function AdminUsersPage() {
                   <div style={{ marginBottom: '24px' }}>
                     <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.35)', marginBottom: '16px' }}>
                       Edit deposit wallet addresses for each asset. Users will see these addresses for deposits.
+                      <br />
+                      <a 
+                        href="/admin/wallet-defaults" 
+                        style={{ color: '#C9A050', textDecoration: 'underline', fontSize: '11px' }}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          window.location.href = '/admin/wallet-defaults';
+                        }}
+                      >
+                        Manage default addresses →
+                      </a>
                     </p>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                       {ASSETS.map(asset => (
                         <div key={asset}>
                           <label style={{ display: 'block', fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginBottom: '6px', fontWeight: 500 }}>
                             {asset} Deposit Address
+                            {isUsingDefaultAddress(asset, editingAddresses[asset] || '') && (
+                              <span style={{ marginLeft: '8px', fontSize: '10px', color: '#10B981', fontWeight: 'bold' }}>
+                                (Using Default)
+                              </span>
+                            )}
                           </label>
                           <input
                             type="text"
@@ -333,6 +363,26 @@ export default function AdminUsersPage() {
                               fontFamily: 'monospace',
                             }}
                           />
+                          {defaultAddresses[asset] && (
+                            <div style={{ marginTop: '4px', fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>
+                              Default: {defaultAddresses[asset].slice(0, 20)}...
+                              <button
+                                type="button"
+                                onClick={() => setEditingAddresses(prev => ({ ...prev, [asset]: defaultAddresses[asset] }))}
+                                style={{
+                                  marginLeft: '8px',
+                                  background: 'none',
+                                  border: 'none',
+                                  color: '#C9A050',
+                                  cursor: 'pointer',
+                                  fontSize: '11px',
+                                  textDecoration: 'underline'
+                                }}
+                              >
+                                Use Default
+                              </button>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>

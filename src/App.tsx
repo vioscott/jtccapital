@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate, Navigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -29,6 +29,7 @@ import AdminDashboardPage    from './pages/admin/AdminDashboardPage';
 import AdminUsersPage        from './pages/admin/AdminUsersPage';
 import AdminTransactionsPage from './pages/admin/AdminTransactionsPage';
 import AdminTradesPage       from './pages/admin/AdminTradesPage';
+import AdminWalletDefaultsPage from './pages/admin/AdminWalletDefaultsPage';
 
 // Page-level transition wrapper
 function PageTransition({ children }: { children: React.ReactNode }) {
@@ -46,17 +47,40 @@ function PageTransition({ children }: { children: React.ReactNode }) {
 
 // Protected Route Wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { session, isLoading } = useAuth();
-  if (isLoading) return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center' }}><div className="pulse-gold" style={{width:20,height:20,borderRadius:'50%',background:'#C9A050'}}/></div>;
-  if (!session) return <Navigate to="/login" replace />;
+  const { session, isLoading, isDataLoading } = useAuth();
+  console.log("ProtectedRoute - Session:", session, "Auth Loading:", isLoading, "Data Loading:", isDataLoading)
+  
+  if (isLoading) {
+    console.log("Showing auth loading spinner")
+    return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center' }}><div className="pulse-gold" style={{width:20,height:20,borderRadius:'50%',background:'#C9A050'}}/></div>;
+  }
+  
+  if (!session) {
+    console.log("No session, redirecting to login")
+    return <Navigate to="/login" replace />;
+  }
+  
+  if (isDataLoading) {
+    console.log("Showing data loading spinner")
+    return <div style={{ height:'100vh', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:'16px' }}>
+      <div className="pulse-gold" style={{width:20,height:20,borderRadius:'50%',background:'#C9A050'}}/>
+      <span style={{ color: 'rgba(255,255,255,0.6)', fontSize: '14px' }}>Loading your data...</span>
+    </div>;
+  }
+  
   return <>{children}</>;
 }
 
 
 
 function AppContent() {
-  const { user } = useAuth();
+  const { user, role, session, isLoading, isDataLoading } = useAuth();
+  console.log("Session:", session)
+  console.log("Loading:", isLoading)
+  console.log("Data Loading:", isDataLoading)
+  console.log("User:", session?.user)
   const location = useLocation();
+  const navigate = useNavigate();
   const isDashboard = ['/dashboard', '/wallet', '/trading'].some(path => location.pathname.startsWith(path));
   const isAdmin = location.pathname.startsWith('/admin');
   const showFooter = !isDashboard && !isAdmin;
@@ -88,12 +112,15 @@ function AppContent() {
     }
 
     const fetchNotification = async () => {
+      console.log("Fetching notifications for user:", user?.id)
       try {
         const { data: pending } = await supabase
           .from('transactions')
           .select('id')
           .eq('user_id', user.id)
           .in('status', ['pending', 'failed']);
+
+        console.log("Pending transactions found:", pending?.length || 0)
 
         if (pending && pending.length > 0) {
           setNotification(`You have ${pending.length} open transaction(s).`);
@@ -108,6 +135,7 @@ function AppContent() {
           .eq('user_id', user.id)
           .eq('status', 'open');
         const currentOpenTrades = openTrades?.length || 0;
+        console.log("Open trades found:", currentOpenTrades)
         if (prevOpenTrades !== null && currentOpenTrades !== prevOpenTrades) {
           addToast(`Open trades: ${currentOpenTrades} (was ${prevOpenTrades})`, 'info');
         }
@@ -118,6 +146,7 @@ function AppContent() {
           .from('wallets')
           .select('balance');
         const walletSum = wallets?.reduce((sum: number, w: any) => sum + Number(w.balance), 0) || 0;
+        console.log("Wallet total balance:", walletSum)
         if (prevWalletValue !== null && Math.abs(walletSum - prevWalletValue) > 0.001) {
           const diff = (walletSum - prevWalletValue).toFixed(2);
           addToast(`Wallet value changed by ${diff} USDT`, diff.startsWith('-') ? 'warning' : 'success');
@@ -132,6 +161,18 @@ function AppContent() {
     const interval = setInterval(fetchNotification, 30000);
     return () => clearInterval(interval);
   }, [user]);
+
+  // Redirect admin users to admin dashboard after role is loaded
+  useEffect(() => {
+    if (!user) return;
+    if (role === null || role === undefined) return;
+
+    if (role === 'admin' && !location.pathname.startsWith('/admin') && location.pathname !== '/login') {
+      navigate('/admin/dashboard');
+    } else if (role !== 'admin' && location.pathname.startsWith('/admin')) {
+      navigate('/dashboard');
+    }
+  }, [user, role, location.pathname, navigate]);
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', flexDirection: 'column' }}>
@@ -169,6 +210,7 @@ function AppContent() {
                 <Route index element={<Navigate to="/admin/dashboard" replace />} />
                 <Route path="dashboard"    element={<PageTransition><AdminDashboardPage /></PageTransition>} />
                 <Route path="users"        element={<PageTransition><AdminUsersPage /></PageTransition>} />
+                <Route path="wallet-defaults" element={<PageTransition><AdminWalletDefaultsPage /></PageTransition>} />
                 <Route path="transactions" element={<PageTransition><AdminTransactionsPage /></PageTransition>} />
                 <Route path="trades"       element={<PageTransition><AdminTradesPage /></PageTransition>} />
               </Route>
