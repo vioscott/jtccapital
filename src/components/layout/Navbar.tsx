@@ -4,8 +4,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, ChevronRight, Bell, User, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import jtcLogo from '../../assets/images/logos/jtc_logo_full.png';
-import Sidebar from './Sidebar';
 import ConfirmModal from '../ui/ConfirmModal';
+import Sidebar from './Sidebar';
 
 const navLinks = [
   { label: 'Markets', to: '/markets' },
@@ -14,13 +14,19 @@ const navLinks = [
   { label: 'Support', to: '/support' },
 ];
 
-export default function Navbar() {
+interface NavbarProps {
+  notification?: string | null;
+  showNotif?: boolean;
+  setShowNotif?: (v: boolean) => void;
+}
+
+export default function Navbar({ notification = null, showNotif = false, setShowNotif }: NavbarProps) {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
-  const { session, signOut } = useAuth();
+  const { session, signOut, role } = useAuth();
 
   const isDashboard = ['/dashboard', '/wallet', '/trading'].some(path => location.pathname.startsWith(path));
 
@@ -89,9 +95,72 @@ export default function Navbar() {
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {session ? (
               <>
-                <button style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', padding: '8px' }}>
-                  <Bell size={20} />
-                </button>
+                <div style={{ position: 'relative' }}>
+                  <button
+                    onClick={() => setShowNotif && setShowNotif(!showNotif)}
+                    style={{
+                      background: showNotif ? 'rgba(201,160,80,0.12)' : 'none',
+                      border: showNotif ? '1px solid rgba(201,160,80,0.3)' : 'none',
+                      borderRadius: '8px',
+                      color: showNotif ? '#C9A050' : 'rgba(255,255,255,0.6)',
+                      cursor: 'pointer', padding: '8px',
+                      transition: 'all 0.2s',
+                      position: 'relative',
+                    }}
+                  >
+                    <Bell size={20} />
+                    {notification && (
+                      <span style={{
+                        position: 'absolute', top: '5px', right: '5px',
+                        width: '7px', height: '7px', borderRadius: '50%',
+                        background: '#ef4444', border: '1.5px solid #0a0a0a',
+                      }} />
+                    )}
+                  </button>
+
+                  {/* Notification dropdown */}
+                  <AnimatePresence>
+                    {showNotif && (
+                      <motion.div
+                        initial={{ opacity: 0, y: -8, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                        transition={{ duration: 0.18 }}
+                        style={{
+                          position: 'absolute', top: 'calc(100% + 12px)', right: 0,
+                          width: '300px', background: '#111',
+                          border: '1px solid rgba(201,160,80,0.25)',
+                          borderRadius: '14px', padding: '16px',
+                          boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
+                          zIndex: 200,
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                          <Bell size={15} color="#C9A050" />
+                          <span style={{ fontSize: '13px', fontWeight: 700, color: '#C9A050', letterSpacing: '0.03em' }}>Notifications</span>
+                          <button
+                            onClick={() => setShowNotif && setShowNotif(false)}
+                            style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(255,255,255,0.3)', lineHeight: 1 }}
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                        <div style={{
+                          padding: '12px 14px', borderRadius: '10px',
+                          background: notification?.includes('open') ? 'rgba(239,68,68,0.07)' : 'rgba(201,160,80,0.06)',
+                          border: `1px solid ${notification?.includes('open') ? 'rgba(239,68,68,0.2)' : 'rgba(201,160,80,0.15)'}`,
+                        }}>
+                          <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.85)', margin: 0, lineHeight: 1.5 }}>
+                            {notification || 'All clear. No pending notifications.'}
+                          </p>
+                        </div>
+                        <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', marginTop: '10px', marginBottom: 0 }}>
+                          Updates every 30 seconds
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
                 <Link to="/dashboard" style={{
                   display: 'flex', alignItems: 'center', gap: '8px',
                   padding: '8px 18px', borderRadius: '10px',
@@ -101,6 +170,17 @@ export default function Navbar() {
                 }} className="hidden-mobile">
                   <User size={16} /> Dashboard
                 </Link>
+                {role === 'admin' && (
+                  <Link to="/admin/dashboard" style={{
+                    display: 'flex', alignItems: 'center', gap: '8px',
+                    padding: '8px 18px', borderRadius: '10px',
+                    background: 'rgba(201,160,80,0.1)', border: '1px solid rgba(201,160,80,0.3)',
+                    color: '#C9A050', fontWeight: 600, fontSize: '14px',
+                    textDecoration: 'none',
+                  }} className="hidden-mobile">
+                    Admin
+                  </Link>
+                )}
                 <button onClick={() => setShowLogoutConfirm(true)} style={{
                   display: 'flex', alignItems: 'center', gap: '6px',
                   background: 'none', border:'1px solid rgba(255,255,255,0.1)',

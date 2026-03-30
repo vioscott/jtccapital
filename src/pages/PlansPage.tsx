@@ -54,6 +54,7 @@ export default function PlansPage() {
         plan_id: selectedPlan.id,
         plan_name: selectedPlan.name,
         amount: amt,
+        original_amount: amt,
         roi_min: selectedPlan.roiMin,
         roi_max: selectedPlan.roiMax,
         duration: selectedPlan.duration,

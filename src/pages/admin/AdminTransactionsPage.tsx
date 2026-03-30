@@ -27,10 +27,7 @@ export default function AdminTransactionsPage() {
     try {
       const { data, error } = await supabase
         .from('transactions')
-        .select(`
-          *,
-          profiles:user_id (full_name)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) console.error('Fetch error:', error);
@@ -121,7 +118,6 @@ export default function AdminTransactionsPage() {
   const filtered = transactions.filter(t => {
     const matchesStatus = filter === 'all' || t.status === filter;
     const matchesSearch = !search || 
-      t.profiles?.full_name?.toLowerCase().includes(search.toLowerCase()) ||
       t.user_id?.toLowerCase().includes(search.toLowerCase()) ||
       t.id?.toLowerCase().includes(search.toLowerCase()) ||
       t.asset?.toLowerCase().includes(search.toLowerCase());
@@ -227,8 +223,8 @@ export default function AdminTransactionsPage() {
                     </div>
                   </td>
                   <td style={{ padding: '20px 24px' }}>
-                    <div style={{ fontWeight: 500 }}>{tx.profiles?.full_name || 'Unknown User'}</div>
-                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', fontFamily: 'monospace' }}>{tx.user_id?.slice(0, 14)}...</div>
+                    <div style={{ fontWeight: 500 }}>{tx.user_id?.slice(0, 14)}...</div>
+                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', fontFamily: 'monospace' }}>{tx.user_id}</div>
                   </td>
                   <td style={{ padding: '20px 24px' }}>
                     <div style={{ fontWeight: 700, fontSize: '15px' }}>{tx.amount} {tx.asset}</div>

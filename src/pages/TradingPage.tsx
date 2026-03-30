@@ -69,10 +69,9 @@ export default function TradingPage() {
 
   // 1. Fetch live price
   // 2. Check user wallet balance
-  // 3. Deduct funds
+  // 3. Deduct funds and update asset
   // 4. Create trade record
-  // 5. Update wallet
-  // 6. Return result
+  // 5. Return result
   async function executeTrade() {
     if (!user || !amount || parseFloat(amount) <= 0) {
       throw new Error('Invalid trade parameters');
@@ -90,17 +89,38 @@ export default function TradingPage() {
 
     // 2. Check user wallet balance
     const usdtBal = Number(usdtWallet.balance || 0);
+    let assetWallet = wallets.find(w => w.asset === pair.symbol);
+    if (!assetWallet) {
+      // Create asset wallet if not exists
+      const { data: newWallet, error: createErr } = await supabase.from('wallets').insert({
+        user_id: user.id,
+        asset: pair.symbol,
+        balance: 0
+      }).select().single();
+      if (createErr) throw createErr;
+      assetWallet = newWallet;
+      setWallets(prev => [...prev, assetWallet]);
+    }
+    const assetBal = Number(assetWallet.balance || 0);
+
     if (orderType === 'buy' && tradeValue + tradeFee > usdtBal) {
       throw new Error('Insufficient USDT balance to execute buy order');
     }
+    if (orderType === 'sell' && tradeSize > assetBal) {
+      throw new Error(`Insufficient ${pair.symbol} balance to execute sell order`);
+    }
 
-    // 3. Deduct funds (for buy orders)
+    // 3. Update wallets
     if (orderType === 'buy') {
-      const { error: walletUpdateError } = await supabase.from('wallets')
-        .update({ balance: usdtBal - (tradeValue + tradeFee) })
-        .eq('user_id', user.id)
-        .eq('asset', 'USDT');
-      if (walletUpdateError) throw walletUpdateError;
+      // Deduct USDT
+      await supabase.from('wallets').update({ balance: usdtBal - (tradeValue + tradeFee) }).eq('id', usdtWallet.id);
+      // Add asset
+      await supabase.from('wallets').update({ balance: assetBal + tradeSize }).eq('id', assetWallet.id);
+    } else {
+      // Deduct asset
+      await supabase.from('wallets').update({ balance: assetBal - tradeSize }).eq('id', assetWallet.id);
+      // Add USDT
+      await supabase.from('wallets').update({ balance: usdtBal + (tradeValue - tradeFee) }).eq('id', usdtWallet.id);
     }
 
     // 4. Create trade record
@@ -111,27 +131,17 @@ export default function TradingPage() {
       amount: tradeSize,
       entry_price: currentPrice,
       fee: tradeFee,
-      status: 'open',
+      status: 'completed',
       created_at: new Date().toISOString(),
     });
     if (tradeError) throw tradeError;
 
-    // 5. Update wallet (already updated for buys, for sells we will assume close flow call handles proceeds)
-    if (orderType === 'sell') {
-      const matchingPos = openTrades.find(t => t.asset === pair.symbol && t.type === 'buy');
-      if (!matchingPos) {
-        throw new Error(`No open ${pair.symbol} position found to sell`);
-      }
-      // sell closes position and updates wallet balance in close trade method
-      await handleCloseTrade(matchingPos.id);
-    }
-
-    // 6. Return result
+    // 5. Return result
     return {
       success: true,
       message: orderType === 'buy'
         ? `Bought ${tradeSize} ${pair.symbol} at $${currentPrice.toFixed(2)}`
-        : `Sell order executed for ${pair.symbol}`,
+        : `Sold ${tradeSize} ${pair.symbol} at $${currentPrice.toFixed(2)}`,
     };
   }
 

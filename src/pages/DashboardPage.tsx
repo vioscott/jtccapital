@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { TrendingUp, Wallet, ArrowUpRight, ArrowDownLeft, Activity, DollarSign, BarChart2 } from 'lucide-react';
+import { TrendingUp, Wallet, ArrowUpRight, ArrowDownLeft, Activity, DollarSign, BarChart2, Star } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { useMarketData } from '../context/MarketContext';
 import { useAuth } from '../context/AuthContext';
@@ -59,12 +59,16 @@ const CustomPieTooltip = ({ active, payload }: any) => {
 export default function DashboardPage() {
   const { user } = useAuth();
   const { prices, loading: marketLoading } = useMarketData();
-  const [tab, setTab] = useState<'trades'|'transactions'>('trades');
+  const [tab, setTab] = useState<'trades'|'transactions'>('transactions');
   
   // Real data state
+  const [profile, setProfile] = useState<any>(null);
   const [wallets, setWallets] = useState<any[]>([]);
   const [trades, setTrades] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [investments, setInvestments] = useState<any[]>([]);
+  const [isClaiming, setIsClaiming] = useState(false);
+  const [partialClaimPercent, setPartialClaimPercent] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -72,15 +76,19 @@ export default function DashboardPage() {
       if (!user) return;
       setIsLoading(true);
       try {
-        const [wRes, tRes, txRes] = await Promise.all([
+        const [wRes, tRes, txRes, invRes, pRes] = await Promise.all([
           supabase.from('wallets').select('*').eq('user_id', user.id),
           supabase.from('trades').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-          supabase.from('transactions').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
+          supabase.from('transactions').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+          supabase.from('investments').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
+          supabase.from('profiles').select('full_name').eq('id', user.id).single(),
         ]);
 
         if (wRes.data) setWallets(wRes.data);
         if (tRes.data) setTrades(tRes.data);
         if (txRes.data) setTransactions(txRes.data);
+        if (invRes.data) setInvestments(invRes.data);
+        if (pRes.data) setProfile(pRes.data);
       } catch (err) {
         console.error('Error fetching dashboard data:', err);
       } finally {
@@ -114,6 +122,20 @@ export default function DashboardPage() {
   const liveChange24h = liveTotalValue > 0 ? (totalChangeVal / liveTotalValue) * 100 : 0;
   const up = liveChange24h >= 0;
 
+  const activeInvestments = investments.filter(inv => inv.status === 'active');
+  const totalActiveInvested = activeInvestments.reduce((sum, inv) => sum + Number(inv.amount), 0);
+  const nextMaturing = activeInvestments
+    .map(inv => ({ ...inv, maturesAt: new Date(inv.matures_at) }))
+    .sort((a, b) => a.maturesAt.getTime() - b.maturesAt.getTime())[0];
+  const daysUntilMature = nextMaturing ? Math.max(0, Math.ceil((nextMaturing.maturesAt.getTime() - Date.now()) / (1000 * 60 * 60 * 24))) : 0;
+
+  const maturedInvestments = investments.filter(inv => {
+    const now = new Date();
+    const maturesAt = new Date(inv.matures_at);
+    return (inv.status === 'matured' || (inv.status === 'active' && maturesAt <= now));
+  });
+  const maturedTotal = maturedInvestments.reduce((sum, inv) => sum + Number(inv.original_amount || inv.amount), 0);
+
   const pieData = liveAssets.map((a: any) => ({ name:a.asset, value: liveTotalValue > 0 ? (a.value/liveTotalValue)*100 : 0 }));
 
   // Removed full-screen loader to allow skeletons
@@ -140,7 +162,9 @@ export default function DashboardPage() {
 
         <div className="r-dashboard-layout">
 
-          <Sidebar />
+          <div className="r-hide-mobile">
+            <Sidebar />
+          </div>
           {/* Close the r-dashboard-layout div after sidebar and main content */}
 
         {/* Main content */}
@@ -150,7 +174,7 @@ export default function DashboardPage() {
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', flexWrap:'wrap', gap:'12px' }}>
             <div>
               <h1 style={{ fontSize: '26px', fontWeight: 800, marginBottom: '4px' }}>
-                Welcome back, {user?.user_metadata?.full_name?.split(' ')[0] || 'User'}
+                Welcome back, {profile?.full_name?.split(' ')[0] || user?.user_metadata?.full_name?.split(' ')[0] || 'User'}
               </h1>
               <p style={{ color:'rgba(255,255,255,0.4)', fontSize:'14px' }}>Here's your portfolio overview for today.</p>
             </div>
@@ -174,10 +198,154 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* Active plan details */}
+          <div style={{ background:'#111', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'14px', padding:'18px', marginBottom:'18px' }}>
+            <h3 style={{ fontSize:'16px', fontWeight:700, marginBottom:'10px' }}>Active Investment Plan</h3>
+            {activeInvestments.length === 0 ? (
+              <p style={{ color:'rgba(255,255,255,0.55)', margin: 0 }}>No active investment plan running. Visit Plans to lock new funds.</p>
+            ) : (
+              <div style={{ display:'flex', flexDirection:'column', gap:'8px' }}>
+                {activeInvestments.map((plan: any) => (
+                  <div key={plan.id} style={{ border:'1px solid rgba(201,160,80,0.15)', borderRadius:'10px', padding:'10px', background:'rgba(255,255,255,0.01)' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', gap:'10px', flexWrap:'wrap' }}>
+                      <strong>{plan.plan_name}</strong>
+                      <span style={{ color:'#C9A050', fontWeight:700 }}>${Number(plan.amount).toLocaleString(undefined,{minimumFractionDigits:2})}</span>
+                    </div>
+                    <div style={{ fontSize:'12px', color:'rgba(255,255,255,0.5)' }}>
+                      Term: {plan.duration} days · Status: {plan.status}
+                    </div>
+                    <div style={{ fontSize:'12px', color:'rgba(255,255,255,0.5)' }}>
+                      Matures: {new Date(plan.matures_at).toLocaleDateString()} ({daysUntilMature} day{daysUntilMature === 1 ? '' : 's'} left)
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Matured Plan History */}
+          <div style={{ background:'#111', border:'1px solid rgba(255,255,255,0.07)', borderRadius:'14px', padding:'18px', marginBottom:'18px' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'start', gap:'12px', marginBottom:'12px' }}>
+              <div>
+                <h3 style={{ fontSize:'16px', fontWeight:700, marginBottom:'6px' }}>Matured Plan History</h3>
+                <div style={{ fontSize:'12px', color:'rgba(255,255,255,0.5)' }}>
+                  {maturedInvestments.length} plan(s) matured, total invested ${maturedTotal.toLocaleString(undefined,{minimumFractionDigits:2})}
+                </div>
+              </div>
+              <button
+                onClick={async () => {
+                  if (!user || maturedInvestments.length === 0) return;
+                  setIsClaiming(true);
+                  try {
+                    const walletRes = await supabase.from('wallets').select('*').eq('user_id', user.id).eq('asset', 'USDT').single();
+                    if (!walletRes.data) throw new Error('USDT wallet not found');
+                      let walletBalance = Number(walletRes.data.balance);
+
+                    for (const plan of maturedInvestments) {
+                      const payout = Number(plan.amount) * (1 + Number(plan.roi_max) / 100);
+                      walletBalance += payout;
+
+                      const { error: invErr } = await supabase.from('investments').update({ status: 'closed' }).eq('id', plan.id);
+                      if (invErr) throw invErr;
+
+                      const { error: txErr } = await supabase.from('transactions').insert({
+                        user_id: user.id,
+                        type: 'payout',
+                        asset: 'USDT',
+                        amount: payout,
+                        status: 'completed'
+                      });
+                      if (txErr) throw txErr;
+                    }
+
+                    const { error: wErr } = await supabase.from('wallets').update({ balance: walletBalance }).eq('id', walletRes.data.id);
+                    if (wErr) throw wErr;
+
+                    setInvestments(prev => prev.map(inv => maturedInvestments.some(m => m.id === inv.id) ? { ...inv, status: 'closed' } : inv));
+                  } catch (err: any) {
+                    console.error('Claim matured plans failed:', err);
+                  } finally {
+                    setIsClaiming(false);
+                  }
+                }}
+                disabled={isClaiming || maturedInvestments.length === 0}
+                style={{
+                  padding:'8px 12px', borderRadius:'8px', border:'1px solid rgba(201,160,80,0.4)',
+                  background: maturedInvestments.length > 0 ? 'rgba(201,160,80,0.15)' : 'rgba(255,255,255,0.03)',
+                  color: maturedInvestments.length > 0 ? '#C9A050' : 'rgba(255,255,255,0.4)', cursor: maturedInvestments.length > 0 ? 'pointer' : 'not-allowed'
+                }}
+              >
+                {isClaiming ? 'Withdrawing...' : 'Withdraw maturity earnings'}
+              </button>
+            </div>
+
+            {maturedInvestments.length === 0 ? (
+              <p style={{ color:'rgba(255,255,255,0.55)', margin: 0 }}>No matured plans in history yet.</p>
+            ) : maturedInvestments.map(plan => (
+              <div key={plan.id} style={{ border:'1px solid rgba(255,255,255,0.08)', borderRadius:'10px', padding:'10px', marginBottom:'8px' }}>
+                <div style={{ fontWeight:600 }}>{plan.plan_name}</div>
+                <div style={{ fontSize:'12px', color:'rgba(255,255,255,0.6)' }}>
+                  Invested: ${Number(plan.amount).toLocaleString(undefined,{minimumFractionDigits:2})} • ROI max: {plan.roi_max}% • Matures: {new Date(plan.matures_at).toLocaleDateString()}
+                </div>
+                <div style={{ fontSize:'11px', color:'rgba(255,255,255,0.5)', marginTop:'5px' }}>
+                  Approx APY: {((Math.pow(1 + Number(plan.roi_max)/100, 365/Number(plan.duration)) - 1) * 100).toFixed(2)}%
+                </div>
+                <div style={{ display:'flex', gap:'8px', alignItems:'center', marginTop:'8px' }}>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    value={partialClaimPercent[plan.id] ?? 100}
+                    onChange={e => setPartialClaimPercent(prev => ({ ...prev, [plan.id]: Math.max(1, Math.min(100, Number(e.target.value) || 0)) }))}
+                    style={{ width:'70px', padding:'6px 8px', borderRadius:'8px', border:'1px solid rgba(255,255,255,0.2)', background:'#0b0b0b', color:'#fff' }}
+                  />
+                  %
+                  <button
+                    onClick={async () => {
+                      if (!user) return;
+                      const claimPercent = partialClaimPercent[plan.id] ?? 100;
+                      const baseAmount = Number(plan.amount);
+                      const planROI = Number(plan.roi_max);
+                      const claimAmount = (baseAmount * (1 + planROI / 100)) * (claimPercent / 100);
+                      const remainderAmount = baseAmount * (1 - claimPercent / 100);
+                      setIsClaiming(true);
+                      try {
+                        const walletRes = await supabase.from('wallets').select('*').eq('user_id', user.id).eq('asset', 'USDT').single();
+                        if (!walletRes.data) throw new Error('USDT wallet not found');
+                        const newBalance = Number(walletRes.data.balance) + claimAmount;
+                        const updatePlan: any = { amount: remainderAmount };
+                        if (claimPercent >= 100) updatePlan.status = 'closed';
+                        await supabase.from('investments').update(updatePlan).eq('id', plan.id);
+                        await supabase.from('wallets').update({ balance: newBalance }).eq('id', walletRes.data.id);
+                        await supabase.from('transactions').insert({
+                          user_id: user.id,
+                          type: 'payout',
+                          asset: 'USDT',
+                          amount: claimAmount,
+                          status: 'completed'
+                        });
+                        setInvestments(prev => prev.map(inv => inv.id === plan.id ? { ...inv, ...updatePlan } : inv));
+                      } catch (err: any) {
+                        console.error('Claim matured plan failed:', err);
+                      } finally {
+                        setIsClaiming(false);
+                      }
+                    }}
+                    disabled={isClaiming}
+                    style={{ padding:'6px 10px', borderRadius:'8px', border:'1px solid rgba(201,160,80,0.4)', background:'rgba(201,160,80,0.15)', color:'#C9A050', cursor:'pointer' }}
+                  >
+                    {isClaiming ? 'Claiming...' : 'Claim partial'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
           {/* Summary cards */}
           <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(180px, 1fr))', gap:'16px' }}>
             {[
               { label:'Total Portfolio', value: `$${liveTotalValue.toLocaleString(undefined,{minimumFractionDigits:2})}`, sub: `${up?'+':''}${liveChange24h.toFixed(2)}% today`, subColor:up?'#22c55e':'#ef4444', icon:DollarSign, highlight:true },
+                { label:'Active Plans', value: `$${totalActiveInvested.toLocaleString(undefined,{minimumFractionDigits:2})}`, sub: activeInvestments.length > 0 ? `${activeInvestments.length} running` : 'No active plans', subColor: activeInvestments.length > 0 ? '#C9A050' : 'rgba(255,255,255,0.4)', icon:Star },
               { label:'Total P&L', value:`${totalPnL >= 0 ? '+' : ''}$${totalPnL.toLocaleString(undefined,{minimumFractionDigits:2})}`, sub:'All time',  subColor: totalPnL >= 0 ? '#22c55e' : '#ef4444', icon:TrendingUp },
               { label:'Active Trades', value:String(trades.filter((t: any) => t.status === 'open').length), sub:'Open positions', subColor:'rgba(255,255,255,0.4)', icon:Activity },
               { label:'Pending',       value:String(transactions.filter((tx: any) => tx.status === 'pending').length), sub:'Account events',  subColor:'#f59e0b', icon:ArrowUpRight },

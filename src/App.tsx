@@ -61,6 +61,7 @@ function AppContent() {
   const isAdmin = location.pathname.startsWith('/admin');
   const showFooter = !isDashboard && !isAdmin;
   const [notification, setNotification] = useState<string | null>(null);
+  const [showNotif, setShowNotif] = useState(false);
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const [prevOpenTrades, setPrevOpenTrades] = useState<number | null>(null);
   const [prevWalletValue, setPrevWalletValue] = useState<number | null>(null);
@@ -135,12 +136,7 @@ function AppContent() {
   return (
     <div style={{ display: 'flex', minHeight: '100vh', flexDirection: 'column' }}>
       <ToastContainer toasts={toasts} onDismiss={id => setToasts(prev => prev.filter(t => t.id !== id))} />
-        {notification && (
-          <div style={{ marginTop:'92px', padding:'10px 16px', background:'#111', borderBottom:'1px solid rgba(201,160,80,0.3)', color:'#C9A050', textAlign:'center', fontSize:'13px' }}>
-            {notification}
-          </div>
-        )}
-      {!isAdmin && <Navbar />}
+      {!isAdmin && <Navbar notification={notification} showNotif={showNotif} setShowNotif={setShowNotif} />}
       <div style={{ display: 'flex', flex: 1 }}>
         {isDashboard && (
           <div className="hidden-mobile">
