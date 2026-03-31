@@ -29,30 +29,64 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
 
   const fetchPrices = async () => {
     try {
-      // Fetch Crypto & Gold (PAXG) from Binance
-      const binanceRes = await fetch('https://api.binance.com/api/v3/ticker/24hr?symbols=["BTCUSDT","ETHUSDT","PAXGUSDT"]');
-      const binanceData = await binanceRes.json();
+      let btcPrice = prices.BTC ? prices.BTC.price : 65000;
+      let btcChange = prices.BTC ? prices.BTC.change : 0;
+      let btcAmt = prices.BTC ? prices.BTC.changeAmt : 0;
+      
+      let ethPrice = prices.ETH ? prices.ETH.price : 3500;
+      let ethChange = prices.ETH ? prices.ETH.change : 0;
+      let ethAmt = prices.ETH ? prices.ETH.changeAmt : 0;
+      
+      let goldPrice = prices.GOLD ? prices.GOLD.price : 2350;
+      let goldChange = prices.GOLD ? prices.GOLD.change : 0;
+      let goldAmt = prices.GOLD ? prices.GOLD.changeAmt : 0;
 
-      let btcPrice = prices.BTC.price, btcChange = 0, btcAmt = 0;
-      let ethPrice = prices.ETH.price, ethChange = 0, ethAmt = 0;
-      let goldPrice = prices.GOLD.price, goldChange = 0, goldAmt = 0;
+      // Fetch Crypto & Gold from CoinGecko
+      try {
+        const cgRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,pax-gold&vs_currencies=usd&include_24hr_change=true');
+        if (!cgRes.ok) throw new Error(`CoinGecko API Error: ${cgRes.statusText}`);
+        const cgData = await cgRes.json();
 
-      if (Array.isArray(binanceData)) {
-        for (const item of binanceData) {
-          const price = parseFloat(item.lastPrice);
-          const change = parseFloat(item.priceChangePercent);
-          const changeAmt = parseFloat(item.priceChange);
-          if (item.symbol === 'BTCUSDT') { btcPrice = price; btcChange = change; btcAmt = changeAmt; }
-          if (item.symbol === 'ETHUSDT') { ethPrice = price; ethChange = change; ethAmt = changeAmt; }
-          if (item.symbol === 'PAXGUSDT') { goldPrice = price; goldChange = change; goldAmt = changeAmt; }
+        if (cgData.bitcoin) {
+          btcPrice = cgData.bitcoin.usd;
+          btcChange = cgData.bitcoin.usd_24h_change || 0;
+          btcAmt = btcPrice - (btcPrice / (1 + btcChange / 100));
         }
+        if (cgData.ethereum) {
+          ethPrice = cgData.ethereum.usd;
+          ethChange = cgData.ethereum.usd_24h_change || 0;
+          ethAmt = ethPrice - (ethPrice / (1 + ethChange / 100));
+        }
+        if (cgData['pax-gold']) {
+          goldPrice = cgData['pax-gold'].usd;
+          goldChange = cgData['pax-gold'].usd_24h_change || 0;
+          goldAmt = goldPrice - (goldPrice / (1 + goldChange / 100));
+        }
+      } catch (err) {
+        console.warn('Failed to fetch crypto data from CoinGecko, falling back to simulated walk', err);
+        
+        btcChange = (Math.random() - 0.5) * 1.5;
+        btcPrice = btcPrice * (1 + btcChange / 100);
+        btcAmt = btcPrice - (prices.BTC ? prices.BTC.price : 65000);
+
+        ethChange = (Math.random() - 0.5) * 2.0;
+        ethPrice = ethPrice * (1 + ethChange / 100);
+        ethAmt = ethPrice - (prices.ETH ? prices.ETH.price : 3500);
+
+        goldChange = (Math.random() - 0.5) * 0.8;
+        goldPrice = goldPrice * (1 + goldChange / 100);
+        goldAmt = goldPrice - (prices.GOLD ? prices.GOLD.price : 2350);
       }
 
       // Fetch Oil (WTI Futures CL=F) from Yahoo Finance via public CORS proxy
-      let oilPrice = prices.OIL.price, oilChange = 0, oilAmt = 0;
+      let oilPrice = prices.OIL ? prices.OIL.price : 82.50;
+      let oilChange = prices.OIL ? prices.OIL.change : 0;
+      let oilAmt = prices.OIL ? prices.OIL.changeAmt : 0;
+      
       try {
         const yahooUrl = encodeURIComponent('https://query1.finance.yahoo.com/v8/finance/chart/CL=F?interval=1d&range=1d');
         const oilRes = await fetch(`https://api.allorigins.win/get?url=${yahooUrl}`);
+        if (!oilRes.ok) throw new Error(`Proxy Error: ${oilRes.statusText}`);
         const proxyData = await oilRes.json();
         const oilData = JSON.parse(proxyData.contents);
         const meta = oilData.chart.result[0].meta;
@@ -63,8 +97,8 @@ export function MarketProvider({ children }: { children: React.ReactNode }) {
         console.warn('Failed to fetch real-world oil data, falling back to simulated walk', err);
         // Simulate a tiny shift if API fails so it still feels "live"
         oilChange = (Math.random() - 0.5) * 1.5;
-        oilPrice = prices.OIL.price * (1 + oilChange / 100);
-        oilAmt = oilPrice - prices.OIL.price;
+        oilPrice = oilPrice * (1 + oilChange / 100);
+        oilAmt = oilPrice - (prices.OIL ? prices.OIL.price : 82.50);
       }
 
       setPrices({

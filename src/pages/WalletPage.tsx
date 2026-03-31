@@ -350,17 +350,21 @@ export default function WalletPage() {
             </h3>
             {mode === 'deposit' ? (
               <>
-                {/* Simulated QR */}
+                {/* Real-time QR */}
                 <div style={{
                   width: '140px', height: '140px', margin: '0 auto 20px',
                   background: '#fff', borderRadius: '12px', padding: '12px',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <div style={{
-                    width: '116px', height: '116px',
-                    background: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' fill='white'/%3E%3Crect x='10' y='10' width='30' height='30' rx='2' fill='black'/%3E%3Crect x='15' y='15' width='20' height='20' rx='1' fill='white'/%3E%3Crect x='18' y='18' width='14' height='14' fill='black'/%3E%3Crect x='60' y='10' width='30' height='30' rx='2' fill='black'/%3E%3Crect x='65' y='15' width='20' height='20' rx='1' fill='white'/%3E%3Crect x='68' y='18' width='14' height='14' fill='black'/%3E%3Crect x='10' y='60' width='30' height='30' rx='2' fill='black'/%3E%3Crect x='15' y='65' width='20' height='20' rx='1' fill='white'/%3E%3Crect x='18' y='68' width='14' height='14' fill='black'/%3E%3Crect x='47' y='47' width='6' height='6' fill='black'/%3E%3Crect x='60' y='47' width='6' height='6' fill='black'/%3E%3Crect x='74' y='47' width='6' height='6' fill='black'/%3E%3Crect x='47' y='60' width='6' height='6' fill='black'/%3E%3Crect x='60' y='60' width='6' height='6' fill='black'/%3E%3Crect x='74' y='60' width='6' height='6' fill='black'/%3E%3Crect x='47' y='74' width='6' height='6' fill='black'/%3E%3Crect x='74' y='74' width='6' height='6' fill='black'/%3E%3C/svg%3E")`,
-                    backgroundSize: 'cover',
-                  }} />
+                  {activeWallet.address ? (
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=116x116&data=${encodeURIComponent(activeWallet.address)}`}
+                      alt="Deposit QR Code"
+                      style={{ width: '116px', height: '116px', display: 'block' }}
+                    />
+                  ) : (
+                    <div style={{ width: '116px', height: '116px', background: '#ccc', borderRadius: '4px' }} />
+                  )}
                 </div>
 
                 <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '12px 16px', marginBottom: '12px' }}>

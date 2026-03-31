@@ -2,10 +2,12 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { motion } from 'framer-motion';
+import { Eye, EyeOff } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -70,18 +72,31 @@ export default function LoginPage() {
               <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', fontWeight: 500 }}>Password</label>
               <Link to="/forgot-password" style={{ fontSize: '12px', color: '#C9A050', textDecoration: 'none', fontWeight: 500 }}>Forgot Password?</Link>
             </div>
-            <input
-              type="password"
-              placeholder="••••••••"
-              required
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              style={{
-                width:'100%', padding:'12px 16px',
-                background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.1)',
-                borderRadius:'10px', color:'#fff', fontSize:'14px', outline:'none',
-              }}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="••••••••"
+                required
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                style={{
+                  width:'100%', padding:'12px 16px', paddingRight: '40px',
+                  background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.1)',
+                  borderRadius:'10px', color:'#fff', fontSize:'14px', outline:'none',
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
+                  background: 'none', border: 'none', color: 'rgba(255,255,255,0.45)',
+                  cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center'
+                }}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
 
           <button disabled={loading} style={{

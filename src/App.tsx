@@ -71,6 +71,16 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function ScrollToTop() {
+  const { pathname } = useLocation();
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+
+  return null;
+}
+
 
 
 function AppContent() {
@@ -176,6 +186,7 @@ function AppContent() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', flexDirection: 'column' }}>
+      <ScrollToTop />
       <ToastContainer toasts={toasts} onDismiss={id => setToasts(prev => prev.filter(t => t.id !== id))} />
       {!isAdmin && <Navbar notification={notification} showNotif={showNotif} setShowNotif={setShowNotif} />}
       <div style={{ display: 'flex', flex: 1 }}>

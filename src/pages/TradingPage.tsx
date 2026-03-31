@@ -131,7 +131,7 @@ export default function TradingPage() {
       amount: tradeSize,
       entry_price: currentPrice,
       fee: tradeFee,
-      status: 'completed',
+      status: orderType === 'buy' ? 'open' : 'completed',
       created_at: new Date().toISOString(),
     });
     if (tradeError) throw tradeError;
@@ -180,12 +180,23 @@ export default function TradingPage() {
       const currentPrice = prices[trade.asset]?.price || 0;
       const proceeds = Number(trade.amount) * currentPrice;
 
-      // 1. Close trade
+      // 1. Ensure they actually have the asset to sell
+      const assetWallet = wallets.find(w => w.asset === trade.asset);
+      const currentAssetBal = assetWallet ? Number(assetWallet.balance) : 0;
+      
+      if (currentAssetBal < Number(trade.amount)) {
+         throw new Error(`Insufficient ${trade.asset} balance to close this position. Ensure you haven't manually sold it already.`);
+      }
+
+      // 2. Close trade
       await supabase.from('trades').update({ status: 'closed', closed_at: new Date().toISOString() }).eq('id', tradeId);
       
-      // 2. Add proceeds to USDT wallet
+      // 3. Add proceeds to USDT wallet
       const currentUsdt = Number(wallets.find(w => w.asset === 'USDT')?.balance || 0);
       await supabase.from('wallets').update({ balance: currentUsdt + proceeds }).eq('user_id', user.id).eq('asset', 'USDT');
+
+      // 4. Deduct from Asset wallet
+      await supabase.from('wallets').update({ balance: currentAssetBal - Number(trade.amount) }).eq('id', assetWallet!.id);
 
       // Refresh
       const [wRes, tRes] = await Promise.all([
@@ -194,10 +205,42 @@ export default function TradingPage() {
       ]);
       if (wRes.data) setWallets(wRes.data);
       if (tRes.data) setOpenTrades(tRes.data);
-    } catch (err) {
+      
+      setMessage({ type: 'success', text: `Successfully closed ${trade.asset} position.` });
+    } catch (err: any) {
       console.error('Error closing trade:', err);
+      setMessage({ type: 'error', text: err.message || 'Error closing trade' });
     }
   }
+
+  const handleQuickAmount = (pctStr: string) => {
+    const currentPrice = prices[pair.symbol]?.price;
+    if (!currentPrice || currentPrice <= 0) return;
+
+    let maxAmount = 0;
+    if (orderType === 'buy') {
+      const usdtBal = Number(usdtWallet.balance || 0);
+      maxAmount = usdtBal / (currentPrice * 1.001); // 0.1% fee taken into account
+    } else {
+      const assetWallet = wallets.find(w => w.asset === pair.symbol);
+      maxAmount = Number(assetWallet?.balance || 0);
+    }
+
+    if (maxAmount <= 0) {
+       setAmount('0');
+       return;
+    }
+
+    let multiplier = 1;
+    if (pctStr === '25%') multiplier = 0.25;
+    if (pctStr === '50%') multiplier = 0.50;
+    if (pctStr === '75%') multiplier = 0.75;
+    if (pctStr === 'MAX') multiplier = 1.00;
+
+    const targetAmt = maxAmount * multiplier;
+    // Limit to 6 decimals and strip trailing zeros
+    setAmount(targetAmt.toFixed(6).replace(/\.?0+$/, ''));
+  };
 
   if (isLoading || marketLoading) {
     return (
@@ -410,13 +453,17 @@ export default function TradingPage() {
               {/* Quick amount buttons */}
               <div style={{ display:'flex', gap:'6px', marginBottom:'16px' }}>
                 {['25%','50%','75%','MAX'].map(pct => (
-                  <button key={pct} style={{
-                    flex:1, padding:'6px', borderRadius:'7px', fontSize:'12px', fontWeight:600,
-                    background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)',
-                    color:'rgba(255,255,255,0.5)', cursor:'pointer', transition:'all 0.2s',
-                  }}
-                  onMouseEnter={e => (e.currentTarget.style.borderColor='rgba(201,160,80,0.4)')}
-                  onMouseLeave={e => (e.currentTarget.style.borderColor='rgba(255,255,255,0.08)')}
+                  <button 
+                    key={pct} 
+                    type="button"
+                    onClick={() => handleQuickAmount(pct)}
+                    style={{
+                      flex:1, padding:'6px', borderRadius:'7px', fontSize:'12px', fontWeight:600,
+                      background:'rgba(255,255,255,0.04)', border:'1px solid rgba(255,255,255,0.08)',
+                      color:'rgba(255,255,255,0.5)', cursor:'pointer', transition:'all 0.2s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.borderColor='rgba(201,160,80,0.4)')}
+                    onMouseLeave={e => (e.currentTarget.style.borderColor='rgba(255,255,255,0.08)')}
                   >{pct}</button>
                 ))}
               </div>
