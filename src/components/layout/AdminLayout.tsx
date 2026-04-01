@@ -52,7 +52,7 @@ export default function AdminLayout() {
         <div style={{ padding: '32px 24px' }}>
           <img 
             src={jtcLogo} 
-            alt="JTC management INC Admin" 
+            alt="JTC Capital Management Admin" 
             style={{ height: '40px', width: 'auto' }} 
             loading="lazy"
           />

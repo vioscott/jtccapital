@@ -62,7 +62,7 @@ export default function Navbar({ notification = null, showNotif = false, setShow
           <Link to="/" style={{ display: 'flex', alignItems: 'center', textDecoration: 'none' }}>
             <img 
               src={jtcLogo} 
-              alt="JTC management INC" 
+              alt="JTC Capital Management" 
               style={{ height: '62px', width: 'auto' }} 
               loading="lazy"
             />

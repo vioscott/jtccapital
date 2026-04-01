@@ -12,7 +12,7 @@ export default function SupportPage() {
   const [submitted, setSubmitted] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [chatMessages, setChatMessages] = useState([
-    { from:'agent', text:'Hi! I\'m your JTC management INC support assistant. How can I help you today?', time:'now' },
+    { from:'agent', text:'Hi! I\'m your JTC Capital Management support assistant. How can I help you today?', time:'now' },
   ]);
 
   const filtered = mockFAQ.filter(f =>
