@@ -138,7 +138,7 @@ export default function LandingPage() {
             </p>
 
             <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-              <Link to="/register" style={{
+              <Link to="/dashboard" style={{
                 display: 'flex', alignItems: 'center', gap: '8px',
                 padding: '15px 32px', borderRadius: '12px',
                 background: 'linear-gradient(135deg, #C9A050, #E5C97A)',
