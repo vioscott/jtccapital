@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X, ChevronRight, Bell, User, LogOut } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import jtcLogo from '/images/logos/jtc_logo_full.png';
+import jtcLogo from '../../assets/images/logos/jtc_logo_full.png';
 import ConfirmModal from '../ui/ConfirmModal';
 import Sidebar from './Sidebar';
 
