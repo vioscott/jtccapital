@@ -110,14 +110,14 @@ export const oilChartData  = generateChartData(82.50, 1.5);
 
 // Mock FAQ
 export const mockFAQ = [
-  { q:'How do I deposit funds?', a:'Navigate to the Wallet page, select your preferred asset, and use the generated wallet address to send funds. Crypto deposits are confirmed after 3 network confirmations.' },
-  { q:'How long do withdrawals take?', a:'Withdrawals are processed within 24 hours. Manual approval is required for amounts above $10,000 for security purposes.' },
-  { q:'Is my investment guaranteed?', a:'No. All investments in financial markets carry risk. Past performance does not guarantee future results. Only invest what you can afford to lose.' },
-  { q:'How is gold investment priced?', a:'Gold positions are priced at the live XAU/USD spot rate from our aggregated market feed, updated every second.' },
-  { q:'What are the trading fees?', a:'Trading fees are 0.1% per trade. Withdrawal fees vary by asset: BTC 0.0005, ETH 0.003, USDT 1 USDT flat.' },
-  { q:'Is 2FA required?', a:'2FA is strongly recommended and required for withdrawals above $500. We support Google Authenticator and SMS.' },
-  { q:'How do investment plans work?', a:'You lock a chosen amount for the plan duration. Projected returns are calculated dynamically and credited to your wallet at the end of the term.' },
-  { q:'Can I cancel an investment plan early?', a:'Early cancellation is available with a 2% penalty fee. Navigate to Dashboard > Active Investments to request early exit.' },
+  { q:'How do I deposit funds?', a:'Navigate to the Wallet page, select your preferred asset, and use the generated wallet address to send funds. Crypto deposits are confirmed after 3 network confirmations.', cat:'Deposits & Withdrawals' },
+  { q:'How long do withdrawals take?', a:'Withdrawals are processed within 24 hours. Manual approval is required for amounts above $10,000 for security purposes.', cat:'Deposits & Withdrawals' },
+  { q:'Is my investment guaranteed?', a:'No. All investments in financial markets carry risk. Past performance does not guarantee future results. Only invest what you can afford to lose.', cat:'Trading' },
+  { q:'How is gold investment priced?', a:'Gold positions are priced at the live XAU/USD spot rate from our aggregated market feed, updated every second.', cat:'Trading' },
+  { q:'What are the trading fees?', a:'Trading fees are 0.1% per trade. Withdrawal fees vary by asset: BTC 0.0005, ETH 0.003, USDT 1 USDT flat.', cat:'Fees' },
+  { q:'Is 2FA required?', a:'2FA is strongly recommended and required for withdrawals above $500. We support Google Authenticator and SMS.', cat:'Security' },
+  { q:'How do investment plans work?', a:'You lock a chosen amount for the plan duration. Projected returns are calculated dynamically and credited to your wallet at the end of the term.', cat:'Investment Plans' },
+  { q:'Can I cancel an investment plan early?', a:'Early cancellation is available with a 2% penalty fee. Navigate to Dashboard > Active Investments to request early exit.', cat:'Investment Plans' },
 ];
 
 export const faqCategories = ['All','Deposits & Withdrawals','Trading','Security','Investment Plans','Fees'];
