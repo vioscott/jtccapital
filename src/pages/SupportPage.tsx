@@ -69,7 +69,7 @@ export default function SupportPage() {
         {/* Quick links */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '14px', marginBottom: '48px' }}>
           {[
-            { icon: Mail, label: 'Email Support', desc: '24h response time', color: '#C9A050' },
+            { icon: Mail, label: 'Email Support', desc: 'jtccapitalmanagement@gmail.com', color: '#C9A050' },
             { icon: Phone, label: 'Phone Support', desc: '+1 (800) 555-0192', color: '#00E5FF' },
             { icon: MessageSquare, label: 'Live Chat', desc: 'Mon–Fri 9am–6pm UTC', color: '#22c55e' },
             { icon: Ticket, label: 'Submit Ticket', desc: 'Track your issue', color: '#a78bfa' },
