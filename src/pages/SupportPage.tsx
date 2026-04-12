@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ChevronDown, ChevronUp, MessageSquare, Ticket, Phone, Mail, Send } from 'lucide-react';
+import { Search, ChevronDown, ChevronUp, MessageSquare, Ticket, Phone, Mail } from 'lucide-react';
 import { mockFAQ, faqCategories } from '../mock/data';
 
 export default function SupportPage() {
